@@ -1,0 +1,33 @@
+# Virtual environments
+.venv/
+env/
+venv/
+
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Data and Raw images (strict compliance with No Large Data in Git)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+
+# Models / Checkpoints
+models/checkpoints/*
+!models/checkpoints/.gitkeep
+
+# OS and IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# MATLAB cache
+*.asv
+*.slxc
+slprj/

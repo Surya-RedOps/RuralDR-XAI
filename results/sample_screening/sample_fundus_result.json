@@ -1,0 +1,59 @@
+{
+  "case_id": "sample_fundus",
+  "timestamp": "2026-08-27T17:29:08.330731",
+  "quality": {
+    "status": "GRADEABLE",
+    "quality_score": 0.8506811347837181,
+    "focus_score": 2879.946891525658,
+    "illumination_score": 5.275992392570394,
+    "fov_coverage": 0.6066627502441406,
+    "glare_artifact_score": 0.008866084397577861,
+    "is_gradeable": true,
+    "recapture_advice": []
+  },
+  "anatomy": {
+    "optic_disc_center": [
+      147,
+      255
+    ],
+    "optic_disc_radius": 40.0,
+    "optic_disc_bbox": [
+      107,
+      215,
+      187,
+      295
+    ],
+    "fovea_center": [
+      309,
+      175
+    ],
+    "vessel_density": 0.02619441556730164,
+    "anatomical_landmarks_valid": true
+  },
+  "lesions": {
+    "microaneurysms_count": 61,
+    "microaneurysms_quadrants": {
+      "ST": 7,
+      "SN": 13,
+      "IT": 89,
+      "IN": 95
+    },
+    "hard_exudates_area_pct": 0.132,
+    "soft_exudates_detected": true,
+    "hemorrhages_count": 28,
+    "hemorrhages_quadrants": {
+      "ST": 622,
+      "SN": 850,
+      "IT": 1095,
+      "IN": 2401
+    },
+    "neovascularization_detected": false,
+    "foveal_involvement_threat": false,
+    "total_lesion_area_pct": 2.833
+  },
+  "prediction": null,
+  "evidence_consistency": null,
+  "triage_decision": "MODEL NOT LOADED: Anatomy and morphological lesion extraction complete.",
+  "review_priority": "ROUTINE",
+  "disclaimer": "RuralDR-XAI is an investigational decision-support tool for rural screening triage. Findings must be validated by a registered ophthalmologist before clinical intervention."
+}
