@@ -7,6 +7,7 @@ from ...models.classifier import DRClassifier
 from ...models.calibrate import TemperatureScaler, compute_ece
 from ...models.triage import evaluate_triage_decision
 from ...models.losses import QuadraticWeightedKappaLoss, FocalLoss
+from .inference import predict_retinopathy
 
 __all__ = [
     "DRClassifier",
@@ -15,4 +16,5 @@ __all__ = [
     "evaluate_triage_decision",
     "QuadraticWeightedKappaLoss",
     "FocalLoss",
+    "predict_retinopathy",
 ]
