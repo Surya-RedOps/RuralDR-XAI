@@ -1,15 +1,20 @@
 """
 Explainable AI Engine: Grad-CAM and Grad-CAM++
 Generates class activation attribution maps for deep DR classifiers.
+
+MEDICAL SAFETY NOTE:
+Grad-CAM shows model attention regions that contributed to the predicted class.
+It does NOT identify specific lesions or provide clinical diagnostic proof.
 """
 
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Dict, List
 import cv2
 import numpy as np
 import torch
 import torch.nn.functional as F
 
 from ..models.classifier import DRClassifier
+from ..core.contracts import GradCAMResult, DR_GRADE_NAMES, DRGrade
 
 
 class GradCAM:
@@ -88,3 +93,84 @@ class GradCAM:
         binary_mask = (cam_np >= 0.35).astype(np.uint8) * 255
 
         return cam_np, binary_mask
+
+    def generate_with_validation(
+        self,
+        input_tensor: torch.Tensor,
+        target_class: Optional[int] = None,
+    ) -> Tuple[np.ndarray, np.ndarray, GradCAMResult]:
+        """
+        Generates Grad-CAM with quality validation checks.
+
+        Returns:
+            cam_heatmap: (H, W) float32 in [0, 1]
+            cam_binary_mask: (H, W) uint8
+            result: GradCAMResult with quality flags and metadata
+        """
+        cam_np, binary_mask = self.generate(input_tensor, target_class)
+
+        # Determine actual target class
+        self.model.eval()
+        with torch.no_grad():
+            logits = self.model(input_tensor)
+            predicted_class = int(torch.argmax(logits, dim=1).item())
+        actual_target = target_class if target_class is not None else predicted_class
+
+        # Quality validation
+        quality_flags = []
+        peak_intensity = float(np.max(cam_np))
+        activation_coverage = float(np.mean(cam_np > 0.1))
+
+        if peak_intensity < 0.01:
+            quality_flags.append("blank_heatmap")
+        if peak_intensity > 0.99 and activation_coverage > 0.8:
+            quality_flags.append("saturated_heatmap")
+        if activation_coverage < 0.02:
+            quality_flags.append("low_coverage")
+
+        is_valid = len(quality_flags) == 0
+
+        # Map class index to name
+        try:
+            class_name = DR_GRADE_NAMES[DRGrade(actual_target)]
+        except (ValueError, KeyError):
+            class_name = f"Class {actual_target}"
+
+        result = GradCAMResult(
+            target_class=actual_target,
+            target_class_name=class_name,
+            is_valid=is_valid,
+            activation_coverage=round(activation_coverage, 4),
+            peak_intensity=round(peak_intensity, 4),
+            quality_flags=quality_flags,
+        )
+
+        return cam_np, binary_mask, result
+
+    def generate_multi_class(
+        self,
+        input_tensor: torch.Tensor,
+        class_indices: Optional[List[int]] = None,
+    ) -> Dict[int, Tuple[np.ndarray, np.ndarray, GradCAMResult]]:
+        """
+        Generates Grad-CAM heatmaps for multiple classes.
+
+        Args:
+            input_tensor: (1, 3, H, W) normalized tensor
+            class_indices: List of class indices to generate for.
+                          If None, generates for all 5 DR classes.
+
+        Returns:
+            Dict mapping class_index -> (heatmap, binary_mask, GradCAMResult)
+        """
+        if class_indices is None:
+            class_indices = list(range(5))
+
+        results = {}
+        for cls_idx in class_indices:
+            cam_np, binary_mask, result = self.generate_with_validation(
+                input_tensor, target_class=cls_idx
+            )
+            results[cls_idx] = (cam_np, binary_mask, result)
+
+        return results

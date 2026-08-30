@@ -112,3 +112,90 @@ class ScreeningResult(BaseModel):
         "RuralDR-XAI is an investigational decision-support tool for rural screening triage. "
         "Findings must be validated by a registered ophthalmologist before clinical intervention."
     )
+
+
+class GradCAMResult(BaseModel):
+    """Grad-CAM attribution result for a single class."""
+    target_class: int = Field(ge=0, le=4, description="Target DR grade class index")
+    target_class_name: str = ""
+    heatmap_path: Optional[str] = None
+    overlay_path: Optional[str] = None
+    binary_mask_path: Optional[str] = None
+    is_valid: bool = True
+    activation_coverage: float = Field(default=0.0, ge=0.0, le=1.0,
+        description="Fraction of image with non-trivial activation (>0.1)")
+    peak_intensity: float = Field(default=0.0, ge=0.0, le=1.0,
+        description="Maximum activation value in the heatmap")
+    quality_flags: List[str] = Field(default_factory=list,
+        description="Warnings: 'blank_heatmap', 'saturated_heatmap', 'low_coverage'")
+    disclaimer: str = (
+        "Grad-CAM shows model attention regions contributing to the predicted class. "
+        "It does NOT identify specific lesions or provide clinical proof."
+    )
+
+
+class LesionDetectionResult(BaseModel):
+    """Per-lesion-type detection result from segmentation."""
+    lesion_type: str
+    detected: bool = False
+    mask_path: Optional[str] = None
+    pixel_area: int = 0
+    relative_area_pct: float = 0.0
+    num_connected_components: int = 0
+    mean_confidence: float = Field(default=0.0, ge=0.0, le=1.0,
+        description="Mean model probability over positive predictions")
+    approximate_locations: List[Tuple[int, int]] = Field(default_factory=list,
+        description="Centroids of detected lesion clusters (x, y)")
+    disclaimer: str = "AI-detected retinal feature. Requires clinical confirmation."
+
+
+class LesionSegmentationResult(BaseModel):
+    """Combined lesion segmentation result across all lesion types."""
+    lesions: List[LesionDetectionResult] = Field(default_factory=list)
+    model_path: Optional[str] = None
+    input_resolution: Tuple[int, int] = (512, 512)
+    segmentation_time_ms: float = 0.0
+
+
+class ExplainableScreeningResult(BaseModel):
+    """Complete Phase 4 explainability pipeline output."""
+    case_id: str = ""
+    timestamp: str = ""
+
+    # Image provenance
+    original_image_path: Optional[str] = None
+    enhanced_image_path: Optional[str] = None
+    inference_image_source: str = "original"  # "original" or "enhanced"
+
+    # Quality gate
+    quality_status: str = ""
+    quality_score: float = 0.0
+    is_gradeable: bool = False
+
+    # DR Classification
+    dr_grade: Optional[int] = None
+    severity: Optional[str] = None
+    classification_confidence: Optional[float] = None
+    is_referable: Optional[bool] = None
+    class_probabilities: Optional[Dict[str, float]] = None
+
+    # Explainability
+    gradcam_result: Optional[GradCAMResult] = None
+
+    # Lesion Segmentation
+    segmentation_result: Optional[LesionSegmentationResult] = None
+
+    # Timing
+    quality_gate_time_ms: float = 0.0
+    classification_time_ms: float = 0.0
+    gradcam_time_ms: float = 0.0
+    segmentation_time_ms: float = 0.0
+    total_pipeline_time_ms: float = 0.0
+
+    # Medical safety
+    evidence_summary: List[str] = Field(default_factory=list,
+        description="Human-readable AI evidence statements")
+    disclaimer: str = (
+        "AI screening result only. All findings require clinical confirmation "
+        "by a qualified ophthalmologist. This system does not provide definitive diagnoses."
+    )
