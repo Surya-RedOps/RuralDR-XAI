@@ -28,13 +28,15 @@ NUM_CLASSES = 5  # ICDR Grade 0 to 4
 # Quality Gate default thresholds (tunable on validation set)
 QUALITY_THRESHOLDS = {
     "min_focus_tenengrad": 15.0,
-    "min_focus_laplacian": 40.0,
-    "min_entropy": 4.2,
+    "min_focus_laplacian_var": 15.0,
+    "min_entropy": 3.5,
     "min_fov_coverage": 0.45,
-    "max_glare_ratio": 0.12,
+    "max_glare_ratio": 0.08,
+    "min_contrast_rms": 15.0,
     "quality_pass_score": 0.60,
     "borderline_score": 0.40,
 }
+
 
 # Calibration defaults
 DEFAULT_TEMPERATURE = 1.25

@@ -50,10 +50,12 @@ class QualityMetrics(BaseModel):
     quality_score: float = Field(ge=0.0, le=1.0, description="Overall image quality score in [0, 1]")
     focus_score: float = Field(ge=0.0, description="Tenengrad/Laplacian focus sharpness metric")
     illumination_score: float = Field(ge=0.0, description="Entropy and dynamic range metric")
+    contrast_score: Optional[float] = Field(default=None, description="RMS contrast metric")
     fov_coverage: float = Field(ge=0.0, le=1.0, description="Retinal foreground area coverage ratio")
     glare_artifact_score: float = Field(ge=0.0, le=1.0, description="Overexposure/glare penalty score")
     is_gradeable: bool
     recapture_advice: List[str] = Field(default_factory=list)
+    details: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class RetinalAnatomy(BaseModel):

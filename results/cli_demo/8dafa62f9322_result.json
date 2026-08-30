@@ -1,0 +1,105 @@
+{
+  "case_id": "8dafa62f9322",
+  "timestamp": "2026-08-30T15:15:56.653765",
+  "quality": {
+    "status": "GRADEABLE",
+    "quality_score": 0.7948136728513595,
+    "focus_score": 809.3563588716247,
+    "illumination_score": 5.769333769785482,
+    "contrast_score": 0.3775197982788086,
+    "fov_coverage": 0.7905251700680272,
+    "glare_artifact_score": 0.1400945896639795,
+    "is_gradeable": true,
+    "recapture_advice": [],
+    "details": {
+      "focus_tenengrad": 809.3563588716247,
+      "focus_laplacian_var": 68.61473898786545,
+      "shannon_entropy": 5.769333769785482,
+      "mean_luminance": 162.10718211378756,
+      "underexposed_ratio": 0.0016659897149229996,
+      "overexposed_ratio": 0.023349098277329918,
+      "rms_contrast": 18.87598991394043,
+      "dynamic_range": 41.0,
+      "fov_coverage": 0.7905251700680272,
+      "centering_offset": 0.002347527614173407,
+      "aspect_ratio": 1.0,
+      "glare_artifact_score": 0.1400945896639795,
+      "color_distortion_score": 0.0,
+      "illumination_uniformity": 0.925823271604567
+    }
+  },
+  "anatomy": {
+    "optic_disc_center": [
+      417,
+      265
+    ],
+    "optic_disc_radius": 50.0,
+    "optic_disc_bbox": [
+      367,
+      215,
+      467,
+      315
+    ],
+    "fovea_center": [
+      236,
+      268
+    ],
+    "vessel_density": 0.017765701240848083,
+    "anatomical_landmarks_valid": true
+  },
+  "lesions": {
+    "microaneurysms_count": 72,
+    "microaneurysms_quadrants": {
+      "ST": 260,
+      "SN": 11,
+      "IT": 286,
+      "IN": 76
+    },
+    "hard_exudates_area_pct": 0.006,
+    "soft_exudates_detected": false,
+    "hemorrhages_count": 55,
+    "hemorrhages_quadrants": {
+      "ST": 1998,
+      "SN": 603,
+      "IT": 1731,
+      "IN": 708
+    },
+    "neovascularization_detected": false,
+    "foveal_involvement_threat": false,
+    "total_lesion_area_pct": 2.657
+  },
+  "prediction": {
+    "predicted_grade": 3,
+    "grade_name": "Level 3 — Severe Non-Proliferative DR",
+    "is_referable": true,
+    "raw_probabilities": [
+      0.09471539407968521,
+      0.18261823058128357,
+      0.2310546636581421,
+      0.28074488043785095,
+      0.21086682379245758
+    ],
+    "calibrated_probabilities": [
+      0.11093931645154953,
+      0.18757905066013336,
+      0.22642314434051514,
+      0.2646052837371826,
+      0.21045327186584473
+    ],
+    "calibrated_confidence": 0.2646052837371826,
+    "temperature_scaling_factor": 1.25
+  },
+  "evidence_consistency": {
+    "status": "PARTIALLY_SUPPORTED",
+    "concordance_index": 0.337,
+    "pointing_game_hit": true,
+    "clinical_rule_satisfied": true,
+    "discordance_reasons": [
+      "Calibrated confidence is borderline (26.5%)."
+    ],
+    "human_review_priority": "HIGH"
+  },
+  "triage_decision": "URGENT REFERRAL: Severe NPDR (4-2-1 clinical criteria reached). Specialist review within 2 weeks.",
+  "review_priority": "URGENT",
+  "disclaimer": "RuralDR-XAI is an investigational decision-support tool for rural screening triage. Findings must be validated by a registered ophthalmologist before clinical intervention."
+}

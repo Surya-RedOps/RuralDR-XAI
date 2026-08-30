@@ -1,17 +1,34 @@
 {
   "case_id": "test_fundus",
-  "timestamp": "2026-08-30T14:02:16.129150",
+  "timestamp": "2026-08-30T15:15:16.440866",
   "quality": {
     "status": "BORDERLINE",
-    "quality_score": 0.595791502662679,
+    "quality_score": 0.5950138857496233,
     "focus_score": 2744.7938663140653,
     "illumination_score": 0.9903470542812445,
+    "contrast_score": 0.45594322204589843,
     "fov_coverage": 0.5798835754394531,
-    "glare_artifact_score": 0.01092011867406077,
+    "glare_artifact_score": 0.013104142408872924,
     "is_gradeable": true,
     "recapture_advice": [
-      "Illumination insufficient / dark periphery: Increase flash intensity setting."
-    ]
+      "Illumination insufficient / dark periphery: Increase flash intensity setting or exposure."
+    ],
+    "details": {
+      "focus_tenengrad": 2744.7938663140653,
+      "focus_laplacian_var": 404.7998505854967,
+      "shannon_entropy": 0.9903470542812445,
+      "mean_luminance": 180.30431607823016,
+      "underexposed_ratio": 0.000032891923717050516,
+      "overexposed_ratio": 0.002184023734812154,
+      "rms_contrast": 22.797161102294922,
+      "dynamic_range": 2.0,
+      "fov_coverage": 0.5798835754394531,
+      "centering_offset": 0.0,
+      "aspect_ratio": 1.0,
+      "glare_artifact_score": 0.013104142408872924,
+      "color_distortion_score": 0.0,
+      "illumination_uniformity": 0.9911735665233238
+    }
   },
   "anatomy": {
     "optic_disc_center": [
@@ -54,38 +71,37 @@
     "total_lesion_area_pct": 3.421
   },
   "prediction": {
-    "predicted_grade": 0,
-    "grade_name": "Level 0 — No Diabetic Retinopathy",
-    "is_referable": false,
+    "predicted_grade": 4,
+    "grade_name": "Level 4 — Proliferative Diabetic Retinopathy",
+    "is_referable": true,
     "raw_probabilities": [
-      0.20542635023593903,
-      0.20057597756385803,
-      0.1943785697221756,
-      0.19860795140266418,
-      0.20101121068000793
+      0.13235585391521454,
+      0.1216045692563057,
+      0.22991856932640076,
+      0.2277592569589615,
+      0.2883617877960205
     ],
     "calibrated_probabilities": [
-      0.20433467626571655,
-      0.20046579837799072,
-      0.19549508392810822,
-      0.19889068603515625,
-      0.20081371068954468
+      0.1449652463197708,
+      0.13546566665172577,
+      0.22549067437648773,
+      0.22379489243030548,
+      0.2702834904193878
     ],
-    "calibrated_confidence": 0.20433467626571655,
+    "calibrated_confidence": 0.2702834904193878,
     "temperature_scaling_factor": 1.25
   },
   "evidence_consistency": {
     "status": "REVIEW_REQUIRED",
-    "concordance_index": 0.065,
+    "concordance_index": 0.026,
     "pointing_game_hit": true,
-    "clinical_rule_satisfied": false,
+    "clinical_rule_satisfied": true,
     "discordance_reasons": [
-      "Model predicted No DR (Grade 0), but 39 MAs and 0.0% exudates detected.",
-      "Calibrated confidence is borderline (20.4%)."
+      "Calibrated confidence is borderline (27.0%)."
     ],
-    "human_review_priority": "HIGH"
+    "human_review_priority": "URGENT"
   },
-  "triage_decision": "NON-REFERABLE: No signs of Diabetic Retinopathy detected. Annual routine screening.",
-  "review_priority": "ROUTINE",
+  "triage_decision": "URGENT REFERRAL: Proliferative Diabetic Retinopathy detected (High neovascular risk).",
+  "review_priority": "URGENT",
   "disclaimer": "RuralDR-XAI is an investigational decision-support tool for rural screening triage. Findings must be validated by a registered ophthalmologist before clinical intervention."
 }

@@ -12,6 +12,9 @@ def compute_tenengrad(image_rgb: np.ndarray, mask: np.ndarray = None) -> float:
     Computes Tenengrad focus metric using Sobel gradient magnitude on the green channel.
     High values indicate sharp edges and well-focused fundus anatomy.
     """
+    if image_rgb is None or image_rgb.size == 0:
+        return 0.0
+
     if image_rgb.ndim == 3:
         green = image_rgb[:, :, 1]
     else:
@@ -34,6 +37,9 @@ def compute_laplacian_variance(image_rgb: np.ndarray, mask: np.ndarray = None) -
     """
     Computes modified Laplacian variance for blur detection.
     """
+    if image_rgb is None or image_rgb.size == 0:
+        return 0.0
+
     if image_rgb.ndim == 3:
         green = image_rgb[:, :, 1]
     else:
@@ -47,3 +53,4 @@ def compute_laplacian_variance(image_rgb: np.ndarray, mask: np.ndarray = None) -
         var_lap = float(np.var(laplacian))
 
     return var_lap
+

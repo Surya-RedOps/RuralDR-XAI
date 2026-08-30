@@ -4,7 +4,7 @@ Includes circular ROI extraction, illumination homogenization (Gaussian subtract
 edge-preserving bilateral denoising, and CLAHE.
 """
 
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 import cv2
 import numpy as np
 
@@ -27,6 +27,31 @@ class AdaptiveEnhancer:
         self.target_size = target_size
         self.clahe_clip_limit = clahe_clip_limit
         self.enable_gaussian_correction = enable_gaussian_illumination_correction
+
+    def enhance_borderline_image(self, image_rgb: np.ndarray) -> np.ndarray:
+        """
+        Applies clinically conservative enhancement to borderline-quality fundus images:
+        - Mild edge-preserving bilateral filter to suppress acquisition sensor noise.
+        - Adaptive Lab CLAHE on L-channel to recover fine vessel and microvascular details.
+        - Preserves chromaticity (a*, b*) to avoid altering exudate/hemorrhage hue.
+        """
+        if image_rgb is None or image_rgb.size == 0:
+            return image_rgb
+
+        # 1. Extract Retinal Mask
+        mask = extract_retinal_mask(image_rgb)
+
+        # 2. Edge-preserving bilateral filter on RGB (suppresses high-frequency sensor noise)
+        denoised = cv2.bilateralFilter(image_rgb, d=5, sigmaColor=25, sigmaSpace=25)
+
+        # 3. Lab CLAHE on Luminance channel
+        enhanced = apply_lab_clahe(denoised, clip_limit=self.clahe_clip_limit)
+
+        # 4. Apply mask to ensure outer background remains clean
+        if mask is not None and np.sum(mask > 0) > 0:
+            enhanced = cv2.bitwise_and(enhanced, enhanced, mask=mask)
+
+        return enhanced
 
     def process(self, image_rgb: np.ndarray) -> Tuple[np.ndarray, np.ndarray, Dict[str, Any]]:
         """

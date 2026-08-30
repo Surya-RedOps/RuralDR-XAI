@@ -1,0 +1,199 @@
+{
+  "evaluation_cohort_size": 50,
+  "accepted_count": 22,
+  "enhanced_and_passed_count": 14,
+  "enhanced_and_rejected_count": 3,
+  "directly_rejected_count": 11,
+  "total_passed_to_dr_model": 36,
+  "total_rejected": 14,
+  "pass_rate_pct": 72.0,
+  "rejection_rate_pct": 28.0,
+  "timing_ms": {
+    "mean": 459.04,
+    "p95": 1263.14,
+    "min": 30.61,
+    "max": 1707.76
+  },
+  "metric_distributions": {
+    "focus_tenengrad": {
+      "mean": 568.94,
+      "std": 418.32
+    },
+    "shannon_entropy": {
+      "mean": 5.9,
+      "std": 0.41
+    },
+    "contrast_score": {
+      "mean": 0.3558,
+      "std": 0.0889
+    },
+    "fov_coverage": {
+      "mean": 0.7563,
+      "std": 0.1366
+    },
+    "glare_artifact_score": {
+      "mean": 0.0803,
+      "std": 0.0851
+    }
+  },
+  "borderline_enhancement_examples": [
+    {
+      "id_code": "653534ded339",
+      "initial_score": 0.7688,
+      "reassessed_score": 0.7979,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "25d069089c5e",
+      "initial_score": 0.7993,
+      "reassessed_score": 0.887,
+      "initial_issues": [
+        "Focus score inadequate: Adjust objective lens focus on retinal vasculature and stabilize camera."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "5288f7441f64",
+      "initial_score": 0.661,
+      "reassessed_score": 0.7178,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "ungradable"
+    },
+    {
+      "id_code": "034cb07a550f",
+      "initial_score": 0.7384,
+      "reassessed_score": 0.8105,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "51131b48f9d4",
+      "initial_score": 0.837,
+      "reassessed_score": 0.8637,
+      "initial_issues": [
+        "Focus score inadequate: Adjust objective lens focus on retinal vasculature and stabilize camera."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "059bc89df7f4",
+      "initial_score": 0.8136,
+      "reassessed_score": 0.8666,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "a82a12ad3fb1",
+      "initial_score": 0.8195,
+      "reassessed_score": 0.8611,
+      "initial_issues": [
+        "Focus score inadequate: Adjust objective lens focus on retinal vasculature and stabilize camera."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "c365c598ad4e",
+      "initial_score": 0.7595,
+      "reassessed_score": 0.7837,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "ungradable"
+    },
+    {
+      "id_code": "9b32e8ef0ca0",
+      "initial_score": 0.8397,
+      "reassessed_score": 0.8444,
+      "initial_issues": [
+        "Focus score inadequate: Adjust objective lens focus on retinal vasculature and stabilize camera."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "29bc0e721cfe",
+      "initial_score": 0.7989,
+      "reassessed_score": 0.8588,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "6f4e0538d1e4",
+      "initial_score": 0.8523,
+      "reassessed_score": 0.8809,
+      "initial_issues": [
+        "Focus score inadequate: Adjust objective lens focus on retinal vasculature and stabilize camera."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "d85ea1220a03",
+      "initial_score": 0.7891,
+      "reassessed_score": 0.8113,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "6cfb7b44ef6f",
+      "initial_score": 0.8097,
+      "reassessed_score": 0.8387,
+      "initial_issues": [
+        "Focus score inadequate: Adjust objective lens focus on retinal vasculature and stabilize camera."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "7b211d8bd249",
+      "initial_score": 0.7632,
+      "reassessed_score": 0.85,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "2967e578939f",
+      "initial_score": 0.6468,
+      "reassessed_score": 0.7926,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "ungradable"
+    },
+    {
+      "id_code": "94111ed3d276",
+      "initial_score": 0.8197,
+      "reassessed_score": 0.8516,
+      "initial_issues": [
+        "Focus score inadequate: Adjust objective lens focus on retinal vasculature and stabilize camera."
+      ],
+      "final_status": "acceptable"
+    },
+    {
+      "id_code": "e26bcae6c67b",
+      "initial_score": 0.7834,
+      "reassessed_score": 0.8676,
+      "initial_issues": [
+        "Severely degraded contrast: Check pupil dilation and sensor exposure."
+      ],
+      "final_status": "acceptable"
+    }
+  ],
+  "thresholds_file": "E:\\SIH\\Base_Architecture\\models\\image_quality\\thresholds.json",
+  "false_rejection_analysis": {
+    "notes": "Low-contrast images with intact vasculature are rescued via conservative bilateral+CLAHE enhancement, minimizing false rejections.",
+    "safety_guard": "Severely defocused images or missing retinal fields are rejected to eliminate false acceptance of unreliable diagnostics."
+  }
+}
