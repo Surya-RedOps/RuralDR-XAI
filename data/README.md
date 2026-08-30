@@ -14,23 +14,25 @@ This directory holds the raw and processed retinal fundus datasets used for trai
 
 ## 2. Directory Structure
 
-Place downloaded datasets into the following directories:
+Place downloaded datasets into the following directories or configure external dataset paths via environment variables (see [`data/DATASETS.md`](file:///e:/SIH/Base_Architecture/data/DATASETS.md) for full guide):
 
 ```
+# External Research Datasets (Recommended outside repository):
+Data_set/
+└── aptos2019-blindness-detection/    <- APTOS 2019 DR Severity Grading
+
+IDRiD/
+├── A. Segmentation/                  <- Lesion & Optic Disc Masks
+├── B. Disease Grading/               <- Multi-class Severity Labels
+└── C. Localization/                  <- Optic Disc & Fovea Coordinates
+
+# Internal Application Structure:
 data/
-├── raw/
-│   ├── IDRiD/              <- Indian Diabetic Retinopathy Image Dataset
-│   │   ├── 1. Original Images/
-│   │   ├── 2. Groundtruths/
-│   │   └── 3. Localization/
-│   ├── EyeQ/               <- Fundus Image Quality Assessment Dataset
-│   ├── APTOS2019/          <- Kaggle APTOS Blindness Detection Dataset
-│   ├── DRIVE/              <- Digital Retinal Images for Vessel Extraction
-│   ├── DDR/                <- DDR Lesion Segmentation & Grading
-│   └── MESSIDOR2/          <- MESSIDOR-2 External Benchmark Dataset
-├── processed/              <- Standardized 512x512 preprocessed images
-├── annotations/            <- Standardized JSON/COCO format lesion masks
-├── manifests/              <- Deterministic train/val/test split manifests
+├── sample/                           <- Lightweight verification samples
+├── processed/                        <- Standardized 512x512 preprocessed images
+├── annotations/                      <- Standardized JSON/COCO format lesion masks
+├── manifests/                        <- Deterministic train/val/test split manifests
+├── DATASETS.md                       <- Dataset registry & configuration documentation
 └── README.md
 ```
 

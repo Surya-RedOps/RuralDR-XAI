@@ -1,6 +1,6 @@
 {
   "case_id": "test_fundus",
-  "timestamp": "2026-08-27T17:35:32.823608",
+  "timestamp": "2026-08-30T14:02:16.129150",
   "quality": {
     "status": "BORDERLINE",
     "quality_score": 0.595791502662679,
@@ -53,9 +53,39 @@
     "foveal_involvement_threat": false,
     "total_lesion_area_pct": 3.421
   },
-  "prediction": null,
-  "evidence_consistency": null,
-  "triage_decision": "MODEL NOT LOADED: Anatomy and morphological lesion extraction complete.",
+  "prediction": {
+    "predicted_grade": 0,
+    "grade_name": "Level 0 — No Diabetic Retinopathy",
+    "is_referable": false,
+    "raw_probabilities": [
+      0.20542635023593903,
+      0.20057597756385803,
+      0.1943785697221756,
+      0.19860795140266418,
+      0.20101121068000793
+    ],
+    "calibrated_probabilities": [
+      0.20433467626571655,
+      0.20046579837799072,
+      0.19549508392810822,
+      0.19889068603515625,
+      0.20081371068954468
+    ],
+    "calibrated_confidence": 0.20433467626571655,
+    "temperature_scaling_factor": 1.25
+  },
+  "evidence_consistency": {
+    "status": "REVIEW_REQUIRED",
+    "concordance_index": 0.065,
+    "pointing_game_hit": true,
+    "clinical_rule_satisfied": false,
+    "discordance_reasons": [
+      "Model predicted No DR (Grade 0), but 39 MAs and 0.0% exudates detected.",
+      "Calibrated confidence is borderline (20.4%)."
+    ],
+    "human_review_priority": "HIGH"
+  },
+  "triage_decision": "NON-REFERABLE: No signs of Diabetic Retinopathy detected. Annual routine screening.",
   "review_priority": "ROUTINE",
   "disclaimer": "RuralDR-XAI is an investigational decision-support tool for rural screening triage. Findings must be validated by a registered ophthalmologist before clinical intervention."
 }

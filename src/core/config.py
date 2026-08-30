@@ -6,13 +6,20 @@ from pathlib import Path
 import os
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-DATA_DIR = PROJECT_ROOT / "data"
-RAW_DATA_DIR = DATA_DIR / "raw"
+WORKSPACE_ROOT = PROJECT_ROOT.parent
+
+# Centralized Dataset Paths (configurable via environment variables or default to local workspace layout)
+APTOS_DATASET_DIR = Path(os.getenv("APTOS_DATASET_DIR", str(WORKSPACE_ROOT / "Data_set" / "aptos2019-blindness-detection")))
+IDRID_DATASET_DIR = Path(os.getenv("IDRID_DATASET_DIR", str(WORKSPACE_ROOT / "IDRiD")))
+
+# Internal application directories
+DATA_DIR = Path(os.getenv("DATA_DIR", str(PROJECT_ROOT / "data")))
+RAW_DATA_DIR = Path(os.getenv("RAW_DATA_DIR", str(DATA_DIR / "raw")))
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 MANIFESTS_DIR = DATA_DIR / "manifests"
-MODELS_DIR = PROJECT_ROOT / "models"
+MODELS_DIR = Path(os.getenv("MODELS_DIR", str(PROJECT_ROOT / "models")))
 CHECKPOINTS_DIR = MODELS_DIR / "checkpoints"
-RESULTS_DIR = PROJECT_ROOT / "results"
+RESULTS_DIR = Path(os.getenv("RESULTS_DIR", str(PROJECT_ROOT / "results")))
 
 # Standard image processing constants
 DEFAULT_IMAGE_SIZE = (512, 512)

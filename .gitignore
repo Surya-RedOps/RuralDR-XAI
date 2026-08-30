@@ -20,6 +20,14 @@ data/processed/*
 # Models / Checkpoints
 models/checkpoints/*
 !models/checkpoints/.gitkeep
+models/classification/*
+!models/classification/.gitkeep
+models/image_quality/*
+!models/image_quality/.gitkeep
+models/segmentation/*
+!models/segmentation/.gitkeep
+models/localization/*
+!models/localization/.gitkeep
 
 # OS and IDE
 .DS_Store

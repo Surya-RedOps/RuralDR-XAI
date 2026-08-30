@@ -9,8 +9,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 import cv2
 import torch
 
-from src.core.config import RESULTS_DIR
+from src.core.config import RESULTS_DIR, CHECKPOINTS_DIR
 from src.engine.orchestrator import ScreeningOrchestrator
+from src.models.classifier import DRClassifier
 from src.reporting.pdf_generator import generate_clinical_pdf_report
 from src.reporting.report import export_screening_json, format_screening_markdown
 
@@ -29,7 +30,18 @@ def main():
 
     print(f"[*] Initializing RuralDR-XAI on device: {args.device}")
     device = torch.device(args.device)
-    orchestrator = ScreeningOrchestrator(device=device)
+
+    # Initialize DRClassifier
+    classifier = DRClassifier(backbone_name="resnet18", num_classes=5, pretrained=False)
+    
+    ckpt_path = Path(args.checkpoint) if args.checkpoint else CHECKPOINTS_DIR / "best_classifier.pth"
+    if ckpt_path.is_file():
+        print(f"[*] Loading model checkpoint from: {ckpt_path}")
+        classifier.load_checkpoint(ckpt_path, device=device)
+    else:
+        print("[*] Using initialized baseline classifier architecture.")
+
+    orchestrator = ScreeningOrchestrator(classifier=classifier, device=device)
 
     print(f"[*] Processing image: {input_path}")
     result, visual_layers = orchestrator.process_image(input_path)

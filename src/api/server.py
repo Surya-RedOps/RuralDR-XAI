@@ -13,9 +13,10 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from ..core.config import RESULTS_DIR
+from ..core.config import RESULTS_DIR, CHECKPOINTS_DIR
 from ..core.contracts import ScreeningResult
 from ..engine.orchestrator import ScreeningOrchestrator
+from ..models.classifier import DRClassifier
 from ..reporting.pdf_generator import generate_clinical_pdf_report
 from ..edge.offline_sync import OfflineEdgeSync
 from .schemas import HealthResponse, ScreeningApiResponse, BatchSyncResponse
@@ -34,9 +35,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Orchestrator and Edge Sync
+# Initialize Classifier, Orchestrator and Edge Sync
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-orchestrator = ScreeningOrchestrator(device=device)
+classifier = DRClassifier(backbone_name="resnet18", num_classes=5, pretrained=False)
+default_ckpt = CHECKPOINTS_DIR / "best_classifier.pth"
+if default_ckpt.is_file():
+    classifier.load_checkpoint(default_ckpt, device=device)
+
+orchestrator = ScreeningOrchestrator(classifier=classifier, device=device)
 edge_sync = OfflineEdgeSync()
 
 # In-memory cache for fast report generation
