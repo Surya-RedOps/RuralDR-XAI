@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { GlassCard } from '@/components/ui/GlassCard';
 import { RetinaBackground } from '@/components/ui/RetinaBackground';
+import { FundusCanvas } from '@/components/ui/FundusCanvas';
 import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 const DR_STAGES = [
@@ -125,32 +126,45 @@ const Hero: React.FC = () => (
           </div>
         </div>
 
-        {/* Retina diagram */}
+        {/* Fundus image */}
         <div className="reveal-scale delay-2 flex items-center justify-center">
           <div className="relative w-full max-w-md aspect-square">
-            <div className="absolute inset-0 rounded-full anim-breathe" style={{ background: 'radial-gradient(circle, rgba(185,28,28,0.14) 0%, transparent 70%)' }} />
-            {[0.96, 0.76, 0.56, 0.36].map((s, i) => (
-              <div key={i} className="absolute rounded-full border" style={{ borderColor: `rgba(255,255,255,${0.04 + i * 0.02})`, inset: `${(1 - s) * 50}%`, width: `${s * 100}%`, height: `${s * 100}%`, animation: `spin-slow ${22 + i * 8}s linear infinite ${i % 2 ? 'reverse' : ''}` }} />
-            ))}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="relative">
-                <div className="w-28 h-28 rounded-full flex items-center justify-center" style={{ background: 'radial-gradient(circle, rgba(185,28,28,0.35) 0%, rgba(0,0,0,0.85) 70%)', border: '1px solid rgba(185,28,28,0.35)' }}>
-                  <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-                    <circle cx="22" cy="22" r="18" stroke="rgba(255,255,255,0.18)" strokeWidth="1"/>
-                    <circle cx="22" cy="22" r="9"  stroke="rgba(255,255,255,0.35)" strokeWidth="1.5"/>
-                    <circle cx="22" cy="22" r="3.5" fill="rgba(255,255,255,0.85)"/>
-                  </svg>
-                </div>
-                <div className="absolute inset-0 rounded-full border border-red-800 opacity-50" style={{ animation: 'pulse-ring 2.8s ease-out infinite' }} />
-                <div className="absolute inset-0 rounded-full border border-red-800 opacity-30" style={{ animation: 'pulse-ring 2.8s ease-out 0.9s infinite' }} />
-              </div>
+
+            {/* Outer ambient glow */}
+            <div className="absolute inset-0 rounded-full anim-breathe pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(160,60,10,0.35) 0%, rgba(100,20,5,0.15) 50%, transparent 75%)', transform: 'scale(1.08)' }} />
+
+            {/* Thin rotating ring */}
+            <div className="absolute inset-0 rounded-full pointer-events-none"
+              style={{ border: '1px solid rgba(200,100,40,0.2)', animation: 'spin-slow 30s linear infinite' }} />
+            <div className="absolute rounded-full pointer-events-none"
+              style={{ inset: '-8px', border: '1px solid rgba(255,255,255,0.05)', animation: 'spin-slow 50s linear infinite reverse' }} />
+
+            {/* Canvas fundus */}
+            <div className="absolute inset-0 rounded-full overflow-hidden"
+              style={{ boxShadow: '0 0 60px rgba(140,50,10,0.5), 0 0 120px rgba(100,30,5,0.3), inset 0 0 30px rgba(0,0,0,0.6)' }}>
+              <FundusCanvas />
             </div>
-            {[{ l: 'Optic Disc', t: '10%', le: '60%', d: 0 }, { l: 'Macula', t: '44%', le: '18%', d: 1 }, { l: 'Vessels', t: '74%', le: '55%', d: 2 }, { l: 'Fovea', t: '28%', le: '36%', d: 3 }].map(({ l, t, le, d }) => (
-              <div key={l} className="absolute flex items-center gap-1.5" style={{ top: t, left: le, animation: `float ${4.5 + d * 0.6}s ease-in-out ${d * 0.5}s infinite` }}>
-                <div className="w-1 h-1 rounded-full bg-white opacity-40" />
-                <span className="t-label text-text-3 whitespace-nowrap">{l}</span>
+
+            {/* Floating anatomy labels */}
+            {[
+              { l: 'Optic Disc', t: '8%',  le: '62%', d: 0 },
+              { l: 'Fovea',      t: '42%', le: '14%', d: 1 },
+              { l: 'Vessels',    t: '72%', le: '52%', d: 2 },
+              { l: 'Macula',     t: '26%', le: '30%', d: 3 },
+            ].map(({ l, t, le, d }) => (
+              <div key={l} className="absolute flex items-center gap-1.5 pointer-events-none"
+                style={{ top: t, left: le, animation: `float ${4.5 + d * 0.7}s ease-in-out ${d * 0.5}s infinite`, zIndex: 10 }}>
+                <div className="w-1 h-1 rounded-full" style={{ background: 'rgba(255,180,80,0.7)' }} />
+                <span className="t-label whitespace-nowrap" style={{ color: 'rgba(255,200,120,0.7)', textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>{l}</span>
               </div>
             ))}
+
+            {/* LIVE badge */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 pointer-events-none"
+              style={{ zIndex: 10 }}>
+              <span className="badge badge-info anim-flicker" style={{ backdropFilter: 'blur(8px)', background: 'rgba(6,182,212,0.12)' }}>● Fundus Scan</span>
+            </div>
           </div>
         </div>
       </div>
