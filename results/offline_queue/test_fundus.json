@@ -1,0 +1,107 @@
+{
+  "case_id": "test_fundus",
+  "timestamp": "2026-08-30T15:35:42.045425",
+  "quality": {
+    "status": "BORDERLINE",
+    "quality_score": 0.5950138857496233,
+    "focus_score": 2744.7938663140653,
+    "illumination_score": 0.9903470542812445,
+    "contrast_score": 0.45594322204589843,
+    "fov_coverage": 0.5798835754394531,
+    "glare_artifact_score": 0.013104142408872924,
+    "is_gradeable": true,
+    "recapture_advice": [
+      "Illumination insufficient / dark periphery: Increase flash intensity setting or exposure."
+    ],
+    "details": {
+      "focus_tenengrad": 2744.7938663140653,
+      "focus_laplacian_var": 404.7998505854967,
+      "shannon_entropy": 0.9903470542812445,
+      "mean_luminance": 180.30431607823016,
+      "underexposed_ratio": 0.000032891923717050516,
+      "overexposed_ratio": 0.002184023734812154,
+      "rms_contrast": 22.797161102294922,
+      "dynamic_range": 2.0,
+      "fov_coverage": 0.5798835754394531,
+      "centering_offset": 0.0,
+      "aspect_ratio": 1.0,
+      "glare_artifact_score": 0.013104142408872924,
+      "color_distortion_score": 0.0,
+      "illumination_uniformity": 0.9911735665233238
+    }
+  },
+  "anatomy": {
+    "optic_disc_center": [
+      145,
+      256
+    ],
+    "optic_disc_radius": 40.0,
+    "optic_disc_bbox": [
+      105,
+      216,
+      185,
+      296
+    ],
+    "fovea_center": [
+      289,
+      201
+    ],
+    "vessel_density": 0.040064047801529924,
+    "anatomical_landmarks_valid": true
+  },
+  "lesions": {
+    "microaneurysms_count": 39,
+    "microaneurysms_quadrants": {
+      "ST": 51,
+      "SN": 0,
+      "IT": 20,
+      "IN": 97
+    },
+    "hard_exudates_area_pct": 0.0,
+    "soft_exudates_detected": false,
+    "hemorrhages_count": 27,
+    "hemorrhages_quadrants": {
+      "ST": 1441,
+      "SN": 1827,
+      "IT": 1344,
+      "IN": 2227
+    },
+    "neovascularization_detected": false,
+    "foveal_involvement_threat": false,
+    "total_lesion_area_pct": 3.421
+  },
+  "prediction": {
+    "predicted_grade": 4,
+    "grade_name": "Level 4 — Proliferative Diabetic Retinopathy",
+    "is_referable": true,
+    "raw_probabilities": [
+      0.13235585391521454,
+      0.1216045692563057,
+      0.22991856932640076,
+      0.2277592569589615,
+      0.2883617877960205
+    ],
+    "calibrated_probabilities": [
+      0.1449652463197708,
+      0.13546566665172577,
+      0.22549067437648773,
+      0.22379489243030548,
+      0.2702834904193878
+    ],
+    "calibrated_confidence": 0.2702834904193878,
+    "temperature_scaling_factor": 1.25
+  },
+  "evidence_consistency": {
+    "status": "REVIEW_REQUIRED",
+    "concordance_index": 0.026,
+    "pointing_game_hit": true,
+    "clinical_rule_satisfied": true,
+    "discordance_reasons": [
+      "Calibrated confidence is borderline (27.0%)."
+    ],
+    "human_review_priority": "URGENT"
+  },
+  "triage_decision": "URGENT REFERRAL: Proliferative Diabetic Retinopathy detected (High neovascular risk).",
+  "review_priority": "URGENT",
+  "disclaimer": "RuralDR-XAI is an investigational decision-support tool for rural screening triage. Findings must be validated by a registered ophthalmologist before clinical intervention."
+}

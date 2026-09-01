@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RuralDR-XAI — Explainable Retinal Screening Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    .glass {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans">
+
+  <!-- TOP HEADER -->
+  <header class="border-b border-slate-800 bg-slate-950/80 sticky top-0 z-50 px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+    <div class="flex items-center space-x-3">
+      <div class="bg-emerald-500/20 text-emerald-400 p-2.5 rounded-xl border border-emerald-500/30">
+        <i class="fa-solid fa-eye text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+          RuralDR-XAI <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">SIH26038</span>
+        </h1>
+        <p class="text-xs text-slate-400">Explainable AI for Diabetic Retinopathy Screening in Rural India</p>
+      </div>
+    </div>
+
+    <!-- System Status Badges -->
+    <div class="flex items-center space-x-3 text-xs">
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Offline Ready
+      </span>
+      <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-800 text-slate-300 border border-slate-700" id="gpu-badge">
+        <i class="fa-solid fa-microchip text-slate-400"></i> GPU: Auto
+      </span>
+      <button id="mode-toggle" class="px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition">
+        Mode: Clinical
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTAINER -->
+  <main class="p-6 max-w-7xl mx-auto space-y-6">
+
+    <!-- UPLOAD & CONTROLS STRIP -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="md:col-span-2 border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-2xl p-4 transition bg-slate-950/40 flex items-center justify-between gap-4">
+        <div class="flex items-center space-x-4">
+          <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-xl">
+            <i class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+          </div>
+          <div>
+            <h2 class="text-sm font-semibold text-white">Upload Retinal Fundus Image</h2>
+            <p class="text-xs text-slate-400">Supports JPEG, PNG, TIFF from portable/tabletop fundus cameras</p>
+          </div>
+        </div>
+        <div>
+          <input type="file" id="file-input" accept="image/*" class="hidden" />
+          <button onclick="document.getElementById('file-input').click()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg border border-slate-700 transition">
+            Browse Image
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-slate-950/40 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-slate-400">Active Case ID:</span>
+          <span class="text-xs font-mono font-bold text-indigo-400" id="display-case-id">CASE-PENDING</span>
+        </div>
+        <div class="flex gap-2 mt-2">
+          <button id="screen-btn" class="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition disabled:opacity-50" disabled>
+            <i class="fa-solid fa-play mr-1"></i> Run Screening
+          </button>
+          <button id="pdf-btn" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-lg border border-slate-700 transition disabled:opacity-50" disabled>
+            <i class="fa-solid fa-file-pdf"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- WORKFLOW STAGE INDICATOR BAR -->
+    <section class="bg-slate-950/40 border border-slate-800 rounded-xl p-3">
+      <div class="flex items-center justify-between text-xs overflow-x-auto gap-4" id="pipeline-stepper">
+        <div class="flex items-center gap-1.5 text-slate-400" id="step-quality"><i class="fa-solid fa-circle-check"></i> 1. Quality</div>
+        <div class="text-slate-600">→</div>
+        <div class="flex items-center gap-1.5 text-slate-400" id="step-enhance"><i class="fa-solid fa-circle-check"></i> 2. Enhancement</div>
+        <div class="text-slate-600">→</div>
+        <div class="flex items-center gap-1.5 text-slate-400" id="step-anatomy"><i class="fa-solid fa-circle-check"></i> 3. Anatomy</div>
+        <div class="text-slate-600">→</div>
+        <div class="flex items-center gap-1.5 text-slate-400" id="step-lesions"><i class="fa-solid fa-circle-check"></i> 4. Lesions</div>
+        <div class="text-slate-600">→</div>
+        <div class="flex items-center gap-1.5 text-slate-400" id="step-model"><i class="fa-solid fa-circle-check"></i> 5. DR Severity</div>
+        <div class="text-slate-600">→</div>
+        <div class="flex items-center gap-1.5 text-slate-400" id="step-xai"><i class="fa-solid fa-circle-check"></i> 6. Grad-CAM</div>
+        <div class="text-slate-600">→</div>
+        <div class="flex items-center gap-1.5 text-slate-400" id="step-consistency"><i class="fa-solid fa-circle-check"></i> 7. Consistency</div>
+      </div>
+    </section>
+
+    <!-- SINGLE-PANE REVIEW GRID (<30s ERGONOMIC LAYOUT) -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- LEFT PANE: DYNAMIC RETINAL IMAGE VIEWER (7 COLS) -->
+      <div class="lg:col-span-7 bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h3 class="text-sm font-bold text-white flex items-center gap-2">
+            <i class="fa-solid fa-image text-indigo-400"></i> Interactive Retinal Canvas
+          </h3>
+          <span class="text-xs text-slate-400" id="img-resolution">Resolution: 512x512</span>
+        </div>
+
+        <!-- Canvas / Image Container -->
+        <div class="relative bg-black rounded-xl overflow-hidden aspect-square flex items-center justify-center border border-slate-800">
+          <img id="main-image" src="" alt="Retinal Fundus" class="max-h-full max-w-full object-contain hidden" />
+          <div id="image-placeholder" class="text-center text-slate-600 space-y-2">
+            <i class="fa-solid fa-eye-slash text-4xl"></i>
+            <p class="text-xs">No fundus image selected. Upload a file above.</p>
+          </div>
+          <!-- Ungradable Alert Overlay -->
+          <div id="ungradable-overlay" class="absolute inset-0 bg-red-950/90 backdrop-blur-sm p-6 flex flex-col items-center justify-center text-center hidden">
+            <i class="fa-solid fa-triangle-exclamation text-red-400 text-4xl mb-2"></i>
+            <h4 class="text-sm font-bold text-white">Image Failed Quality Gate</h4>
+            <p class="text-xs text-red-200 mt-1" id="ungradable-reason">Focus score insufficient</p>
+            <div class="mt-4 p-3 bg-red-900/50 rounded-lg text-left text-xs text-red-100 max-w-sm" id="recapture-box">
+              <strong>Recapture Guidance:</strong>
+              <ul class="list-disc list-inside mt-1" id="recapture-list"></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- LAYER TOGGLES STRIP -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+          <div class="text-xs font-semibold text-slate-400">Evidence Overlay Layers:</div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="view-layer" value="composite" checked class="accent-indigo-500" onchange="updateViewLayer()" /> Composite
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="view-layer" value="original" class="accent-indigo-500" onchange="updateViewLayer()" /> Original
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="view-layer" value="enhanced" class="accent-indigo-500" onchange="updateViewLayer()" /> CLAHE
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="view-layer" value="gradcam" class="accent-indigo-500" onchange="updateViewLayer()" /> Grad-CAM
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT PANE: CLINICAL EVIDENCE & TRIAGE (5 COLS) -->
+      <div class="lg:col-span-5 space-y-4">
+
+        <!-- PRIMARY DIAGNOSTIC CARD -->
+        <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold uppercase text-slate-400">AI Screening Diagnosis</span>
+            <span id="referable-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-800 text-slate-400 border border-slate-700">
+              PENDING
+            </span>
+          </div>
+
+          <div>
+            <h2 class="text-xl font-extrabold text-white" id="predicted-grade-text">Awaiting Input</h2>
+            <div class="flex items-center gap-3 mt-1 text-xs text-slate-400">
+              <span>Calibrated Confidence: <b class="text-indigo-400" id="confidence-text">--%</b></span>
+              <span>ECE: <b class="text-emerald-400">&lt; 5%</b></span>
+            </div>
+          </div>
+
+          <!-- Quality Metric Meter -->
+          <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-2">
+            <div class="flex justify-between text-xs">
+              <span class="text-slate-400">Fundus Quality Score:</span>
+              <span class="font-bold text-white" id="quality-score-text">--</span>
+            </div>
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div id="quality-meter" class="bg-emerald-500 h-full w-0 transition-all duration-500"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LESION EVIDENCE INVENTORY CARD -->
+        <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <h3 class="text-xs font-bold uppercase text-slate-400 flex items-center justify-between">
+            <span>Morphological Lesion Evidence</span>
+            <i class="fa-solid fa-microscope text-indigo-400"></i>
+          </h3>
+
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-400">Microaneurysms (MAs)</div>
+              <div class="text-base font-bold text-red-400 mt-0.5" id="ma-count">--</div>
+            </div>
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-400">Hard Exudates (EX)</div>
+              <div class="text-base font-bold text-yellow-400 mt-0.5" id="ex-area">--%</div>
+            </div>
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-400">Hemorrhages (HE)</div>
+              <div class="text-base font-bold text-fuchsia-400 mt-0.5" id="he-count">--</div>
+            </div>
+            <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <div class="text-slate-400">Foveal Threat Hazard</div>
+              <div class="text-base font-bold text-emerald-400 mt-0.5" id="fovea-hazard">SAFE</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- EVIDENCE CONSISTENCY & REVIEW PRIORITY -->
+        <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-5 space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-bold uppercase text-slate-400">Evidence Consistency</h3>
+            <span id="consistency-badge" class="text-xs font-bold px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+              PENDING
+            </span>
+          </div>
+
+          <p class="text-xs text-slate-300" id="triage-recommendation">
+            Upload an image and run screening to initiate evidence analysis.
+          </p>
+
+          <div class="border-t border-slate-800 pt-3 flex items-center justify-between text-xs">
+            <span class="text-slate-400">Clinician Review Priority:</span>
+            <span class="font-bold text-white px-2 py-0.5 rounded bg-slate-800" id="review-priority-badge">ROUTINE</span>
+          </div>
+        </div>
+
+        <!-- RAPID CLINICIAN DECISION ACTIONS -->
+        <div class="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 flex gap-2">
+          <button class="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl transition">
+            <i class="fa-solid fa-check mr-1"></i> Agree & Sign
+          </button>
+          <button class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl border border-slate-700 transition">
+            Override
+          </button>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    let activeLayers = {};
+    let currentResult = null;
+
+    const fileInput = document.getElementById('file-input');
+    const screenBtn = document.getElementById('screen-btn');
+    const pdfBtn = document.getElementById('pdf-btn');
+    const mainImg = document.getElementById('main-image');
+    const placeholder = document.getElementById('image-placeholder');
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          mainImg.src = event.target.result;
+          mainImg.classList.remove('hidden');
+          placeholder.classList.add('hidden');
+          screenBtn.disabled = false;
+          document.getElementById('display-case-id').innerText = file.name.split('.')[0];
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    screenBtn.addEventListener('click', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      screenBtn.disabled = true;
+      screenBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Screening...';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch('/api/v1/screen', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.success) {
+          currentResult = data.result;
+          activeLayers = data.visual_urls || {};
+          renderResults(data.result);
+          pdfBtn.disabled = false;
+        } else {
+          alert('Screening error: ' + data.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert('Failed to connect to local screening API.');
+      } finally {
+        screenBtn.disabled = false;
+        screenBtn.innerHTML = '<i class="fa-solid fa-play mr-1"></i> Run Screening';
+      }
+    });
+
+    function renderResults(result) {
+      // Quality
+      document.getElementById('quality-score-text').innerText = (result.quality.quality_score * 100).toFixed(1) + '%';
+      document.getElementById('quality-meter').style.width = (result.quality.quality_score * 100) + '%';
+
+      if (!result.quality.is_gradeable) {
+        document.getElementById('ungradable-overlay').classList.remove('hidden');
+        document.getElementById('ungradable-reason').innerText = 'Quality Score: ' + (result.quality.quality_score * 100).toFixed(1) + '%';
+        const list = document.getElementById('recapture-list');
+        list.innerHTML = '';
+        result.quality.recapture_advice.forEach(a => {
+          const li = document.createElement('li');
+          li.innerText = a;
+          list.appendChild(li);
+        });
+        return;
+      } else {
+        document.getElementById('ungradable-overlay').classList.add('hidden');
+      }
+
+      // Prediction
+      if (result.prediction) {
+        document.getElementById('predicted-grade-text').innerText = result.prediction.grade_name;
+        document.getElementById('confidence-text').innerText = (result.prediction.calibrated_confidence * 100).toFixed(1) + '%';
+
+        const refBadge = document.getElementById('referable-badge');
+        if (result.prediction.is_referable) {
+          refBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/20 text-red-300 border border-red-500/30';
+          refBadge.innerText = 'REFERABLE (LEVEL 2+)';
+        } else {
+          refBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+          refBadge.innerText = 'NON-REFERABLE (LEVEL 0/1)';
+        }
+      }
+
+      // Lesions
+      document.getElementById('ma-count').innerText = result.lesions.microaneurysms_count;
+      document.getElementById('ex-area').innerText = result.lesions.hard_exudates_area_pct.toFixed(2) + '%';
+      document.getElementById('he-count').innerText = result.lesions.hemorrhages_count;
+
+      const foveaHazard = document.getElementById('fovea-hazard');
+      if (result.lesions.foveal_involvement_threat) {
+        foveaHazard.className = 'text-base font-bold text-red-400 mt-0.5';
+        foveaHazard.innerText = 'THREAT (NEAR FOVEA)';
+      } else {
+        foveaHazard.className = 'text-base font-bold text-emerald-400 mt-0.5';
+        foveaHazard.innerText = 'SAFE (> 1 DD)';
+      }
+
+      // Evidence Consistency
+      if (result.evidence_consistency) {
+        const consBadge = document.getElementById('consistency-badge');
+        consBadge.innerText = result.evidence_consistency.status;
+        if (result.evidence_consistency.status === 'SUPPORTED') {
+          consBadge.className = 'text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        } else {
+          consBadge.className = 'text-xs font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30';
+        }
+      }
+
+      document.getElementById('triage-recommendation').innerText = result.triage_decision;
+      document.getElementById('review-priority-badge').innerText = result.review_priority;
+
+      updateViewLayer();
+    }
+
+    function updateViewLayer() {
+      const selected = document.querySelector('input[name="view-layer"]:checked').value;
+      if (activeLayers[selected]) {
+        mainImg.src = activeLayers[selected];
+      }
+    }
+
+    pdfBtn.addEventListener('click', () => {
+      if (currentResult && currentResult.case_id) {
+        window.open('/api/v1/export-pdf?case_id=' + currentResult.case_id, '_blank');
+      }
+    });
+  </script>
+</body>
+</html>
