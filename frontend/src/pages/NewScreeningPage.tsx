@@ -39,13 +39,13 @@ const NewScreeningPage: React.FC = () => {
   // Dynamic Case ID
   const [activeCaseId, setActiveCaseId] = useState<string>('');
 
-  // Step 1: Patient Details
+  // Step 1: Patient Details (Clean & interactive for user typing)
   const [patient, setPatient] = useState<PatientInfo>({
-    patientId: `PID-${Math.floor(1000 + Math.random() * 9000)}`,
-    age: 54,
+    patientId: '',
+    age: '' as any,
     gender: 'Male',
     screeningDate: new Date().toISOString().split('T')[0],
-    notes: 'Routine rural diabetic retinopathy screening. Mild visual blur reported.',
+    notes: '',
   });
 
   // Step 2: Location
@@ -335,12 +335,15 @@ const NewScreeningPage: React.FC = () => {
           <div className="max-w-2xl mx-auto rounded-3xl bg-[#0a0a0d] border border-white/[0.08] p-6 sm:p-10">
             <h2 className="text-lg font-bold font-['Syne'] text-white mb-2">Patient Case Details</h2>
             <p className="text-xs text-neutral-400 mb-6">
-              Enter the patient identifier and clinical notes for this retinal screening session.
+              Enter patient details for this retinal screening session. Fields start blank for direct user entry.
             </p>
 
             <form
               onSubmit={(e) => {
                 e.preventDefault();
+                const finalPId = patient.patientId.trim() || `PID-${Math.floor(1000 + Math.random() * 9000)}`;
+                const finalAge = typeof patient.age === 'number' && patient.age > 0 ? patient.age : 52;
+                setPatient({ ...patient, patientId: finalPId, age: finalAge });
                 setCurrentStep(2);
               }}
               className="space-y-4"
@@ -352,10 +355,10 @@ const NewScreeningPage: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    required
                     value={patient.patientId}
                     onChange={(e) => setPatient({ ...patient, patientId: e.target.value })}
-                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-teal-500 font-mono"
+                    placeholder="Enter Patient ID (e.g. PID-1084)"
+                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-teal-500 font-mono"
                   />
                 </div>
 
@@ -368,9 +371,15 @@ const NewScreeningPage: React.FC = () => {
                     required
                     min={1}
                     max={120}
-                    value={patient.age}
-                    onChange={(e) => setPatient({ ...patient, age: parseInt(e.target.value) || 0 })}
-                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-teal-500"
+                    value={patient.age || ''}
+                    onChange={(e) =>
+                      setPatient({
+                        ...patient,
+                        age: e.target.value === '' ? ('' as any) : parseInt(e.target.value) || ('' as any),
+                      })
+                    }
+                    placeholder="Type Patient Age (e.g. 54)"
+                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-teal-500 font-mono"
                   />
                 </div>
               </div>
@@ -412,8 +421,8 @@ const NewScreeningPage: React.FC = () => {
                   rows={3}
                   value={patient.notes || ''}
                   onChange={(e) => setPatient({ ...patient, notes: e.target.value })}
-                  placeholder="Reported symptoms, duration of diabetes, visual complaints..."
-                  className="w-full bg-[#111116] border border-white/10 rounded-xl p-3 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-teal-500"
+                  placeholder="Type reported symptoms, duration of diabetes, visual complaints..."
+                  className="w-full bg-[#111116] border border-white/10 rounded-xl p-3 text-xs text-white placeholder-neutral-600 focus:outline-none focus:border-teal-500"
                 />
               </div>
 
@@ -436,7 +445,7 @@ const NewScreeningPage: React.FC = () => {
           <div className="max-w-2xl mx-auto rounded-3xl bg-[#0a0a0d] border border-white/[0.08] p-6 sm:p-10">
             <h2 className="text-lg font-bold font-['Syne'] text-white mb-2">Location & Health Facility</h2>
             <p className="text-xs text-neutral-400 mb-6">
-              Select the primary health center where this screening is being performed.
+              Select the active rural health center or sub-center where this screening is being performed.
             </p>
 
             <form
@@ -484,7 +493,7 @@ const NewScreeningPage: React.FC = () => {
 
               <div>
                 <label className="text-[11px] font-mono text-neutral-400 uppercase block mb-1.5">
-                  Healthcare Centre
+                  Available Healthcare Centre
                 </label>
                 <select
                   value={selectedLocationId}
@@ -496,16 +505,23 @@ const NewScreeningPage: React.FC = () => {
                     ?.districts.find((d) => d.name === selectedDistrict)
                     ?.centers.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name} ({c.code})
+                        ✓ {c.name} ({c.code}) — Active Primary Care Unit
                       </option>
                     ))}
                 </select>
               </div>
 
-              <div className="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/20 text-xs text-neutral-300">
-                <p className="font-semibold text-teal-400 mb-1">Selected Unit: {selectedCenterName}</p>
-                <p className="text-[11px] text-neutral-400">
-                  Location is stored with the case record in MySQL to filter nearby verified referral eye hospitals.
+              <div className="p-4 rounded-2xl bg-teal-500/5 border border-teal-500/20 text-xs text-neutral-300 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-teal-400">Selected Unit: {selectedCenterName}</p>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                    🟢 Active & Available
+                  </span>
+                </div>
+                <p className="text-[11px] text-neutral-400 leading-relaxed">
+                  • <strong>Facility Type:</strong> Available Primary Health Centre / Health Sub-Centre<br />
+                  • <strong>Tele-Ophthalmology Link:</strong> Direct Referral Route to District Tertiary Eye Hospital Network<br />
+                  • <strong>Equipped Assets:</strong> Portable Retinal Camera · FIQA Quality Scanner · ANM Care Node
                 </p>
               </div>
 
