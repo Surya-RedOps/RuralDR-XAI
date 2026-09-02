@@ -43,3 +43,21 @@ slprj/
 # Nested clones / backups
 Base_Architecture/
 
+# Temporary Uploads & Database
+data/uploads/*
+!data/uploads/.gitkeep
+data/ruraldr.db
+
+# Generated Screening Results
+results/cli_demo/*
+!results/cli_demo/.gitkeep
+results/cli_screening/*
+!results/cli_screening/.gitkeep
+results/sample_screening/*
+!results/sample_screening/.gitkeep
+results/offline_queue/*
+!results/offline_queue/.gitkeep
+
+# Local Environment & Secrets
+.env
+
