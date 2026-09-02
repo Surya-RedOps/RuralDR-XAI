@@ -1,89 +1,83 @@
-import axios, { AxiosError, AxiosInstance } from 'axios';
+import axios, { AxiosError, AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import {
   UploadResponse,
   ProcessResponse,
   StatusResponse,
   ScreeningResult,
-  ApiError,
 } from '@/types/api';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-const apiClient: AxiosInstance = axios.create({
+export const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000,
+  timeout: 45000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Response interceptor for error handling
+// Request interceptor to attach JWT authorization token
+apiClient.interceptors.request.use(
+  (config: InternalAxiosRequestConfig) => {
+    const token = localStorage.getItem('ruraldr_jwt_token');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor for error handling & session expiration
 apiClient.interceptors.response.use(
-  response => response,
-  (error: AxiosError<ApiError>) => {
-    console.error('API Error:', error.response?.data || error.message);
-    return Promise.reject(error);
+  (response) => response,
+  (error: AxiosError<{ detail?: string }>) => {
+    if (error.response?.status === 401) {
+      const url = error.config?.url || '';
+      if (!url.includes('/auth/login')) {
+        localStorage.removeItem('ruraldr_jwt_token');
+        localStorage.removeItem('ruraldr_auth_user');
+      }
+    }
+    const errorMessage = error.response?.data?.detail || error.message || 'An unexpected error occurred';
+    return Promise.reject(new Error(errorMessage));
   }
 );
 
-/**
- * Upload a fundus image
- */
 export async function uploadImage(file: File): Promise<UploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
-
-  const response = await apiClient.post<UploadResponse>('/api/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
+  const response = await apiClient.post<any>('/api/v1/screenings/ANON/image', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
-
-  return response.data;
+  return {
+    upload_id: response.data.case_id || 'ANON',
+    filename: file.name,
+    size_bytes: file.size,
+    message: 'Upload successful',
+  };
 }
 
-/**
- * Start processing pipeline for uploaded image
- */
-export async function processImage(
-  uploadId: string,
-  runSegmentation: boolean = true
-): Promise<ProcessResponse> {
-  const response = await apiClient.post<ProcessResponse>('/api/process', {
-    upload_id: uploadId,
-    run_segmentation: runSegmentation,
-  });
-
-  return response.data;
+export async function processImage(uploadId: string, _runSegmentation: boolean = true): Promise<ProcessResponse> {
+  const response = await apiClient.post<any>(`/api/v1/screenings/${uploadId}/analyze`);
+  return {
+    job_id: uploadId,
+    status: response.data.status,
+    message: 'Processing started',
+  };
 }
 
-/**
- * Poll job status
- */
 export async function getStatus(jobId: string): Promise<StatusResponse> {
-  const response = await apiClient.get<StatusResponse>('/api/status', {
-    params: { job_id: jobId },
-  });
-
-  return response.data;
+  return {
+    job_id: jobId,
+    status: 'completed',
+    progress_pct: 100,
+    current_step: 'Analysis completed',
+  };
 }
 
-/**
- * Get completed results
- */
 export async function getResults(jobId: string): Promise<ScreeningResult> {
-  const response = await apiClient.get<ScreeningResult>('/api/results', {
-    params: { job_id: jobId },
-  });
-
-  return response.data;
-}
-
-/**
- * Health check
- */
-export async function healthCheck(): Promise<{ status: string; backend: string }> {
-  const response = await apiClient.get('/api/health');
+  const response = await apiClient.get<any>(`/api/v1/screenings/${jobId}`);
   return response.data;
 }
 

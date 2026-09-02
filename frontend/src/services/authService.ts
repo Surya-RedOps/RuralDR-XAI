@@ -1,15 +1,17 @@
 /**
- * Authentication Service for RuralDR-XAI prototype
- * Manages Healthcare Worker and Doctor authentication with role protection and mock sessions.
+ * Authentication Service for RuralDR-XAI
+ * Connects to FastAPI backend with JWT tokens and role verification.
  */
 
+import apiClient from './api';
 import { UserProfile, UserRole } from '@/types/api';
 
 const AUTH_STORAGE_KEY = 'ruraldr_auth_user';
+const TOKEN_STORAGE_KEY = 'ruraldr_jwt_token';
 
 export const MOCK_USERS: Record<UserRole, UserProfile> = {
   worker: {
-    id: 'HW-TN-4091',
+    id: 'HW-1',
     role: 'worker',
     name: 'Lakshmi Narayanan, ANM',
     email: 'worker@ruraldrxai.demo',
@@ -18,7 +20,7 @@ export const MOCK_USERS: Record<UserRole, UserProfile> = {
     isVerified: true,
   },
   doctor: {
-    id: 'DR-OPH-8842',
+    id: 'DR-2',
     role: 'doctor',
     name: 'Dr. S. K. Aravind, MS (Ophthalmology)',
     email: 'doctor@ruraldrxai.demo',
@@ -29,6 +31,23 @@ export const MOCK_USERS: Record<UserRole, UserProfile> = {
   },
 };
 
+interface LoginApiResponse {
+  access_token: string;
+  token_type: string;
+  user: {
+    id: number;
+    role: 'worker' | 'doctor';
+    email: string;
+    mobile: string;
+    full_name: string;
+    reg_number?: string;
+    facility_name?: string;
+    location_id?: number;
+    verification_status: string;
+    is_verified: boolean;
+  };
+}
+
 export const authService = {
   getCurrentUser(): UserProfile | null {
     try {
@@ -37,23 +56,33 @@ export const authService = {
         return JSON.parse(stored) as UserProfile;
       }
     } catch {
-      // ignore JSON parse error
+      // ignore
     }
     return null;
   },
 
-  async loginWorker(emailOrMobile: string, password: string): Promise<UserProfile> {
-    // Simulate brief network latency for realistic UX
-    await new Promise((res) => setTimeout(res, 600));
+  getToken(): string | null {
+    return localStorage.getItem(TOKEN_STORAGE_KEY);
+  },
 
-    // Allow demo user or any valid format for easy evaluation
-    if (!emailOrMobile.trim() || !password.trim()) {
-      throw new Error('Please enter registered mobile/email and password.');
-    }
+  async loginWorker(emailOrMobile: string, password: string): Promise<UserProfile> {
+    const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/login', {
+      identifier: emailOrMobile.trim(),
+      password: password.trim(),
+    });
+
+    const { access_token, user } = response.data;
+    localStorage.setItem(TOKEN_STORAGE_KEY, access_token);
 
     const profile: UserProfile = {
-      ...MOCK_USERS.worker,
-      email: emailOrMobile.includes('@') ? emailOrMobile : MOCK_USERS.worker.email,
+      id: `HW-${user.id}`,
+      role: 'worker',
+      name: user.full_name,
+      email: user.email,
+      mobile: user.mobile,
+      regNumber: user.reg_number,
+      centerName: user.facility_name || 'Primary Health Centre',
+      isVerified: user.is_verified,
     };
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
@@ -61,28 +90,62 @@ export const authService = {
   },
 
   async loginDoctor(regNumber: string, emailOrMobile: string, password: string): Promise<UserProfile> {
-    await new Promise((res) => setTimeout(res, 600));
+    const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/login', {
+      identifier: (regNumber.trim() || emailOrMobile.trim()),
+      password: password.trim(),
+      reg_number: regNumber.trim(),
+    });
 
-    if (!regNumber.trim() || !emailOrMobile.trim() || !password.trim()) {
-      throw new Error('Please enter Medical Registration Number, email/mobile, and password.');
-    }
+    const { access_token, user } = response.data;
+    localStorage.setItem(TOKEN_STORAGE_KEY, access_token);
 
     const profile: UserProfile = {
-      ...MOCK_USERS.doctor,
-      regNumber: regNumber.trim().toUpperCase(),
-      email: emailOrMobile.includes('@') ? emailOrMobile : MOCK_USERS.doctor.email,
+      id: `DR-${user.id}`,
+      role: 'doctor',
+      name: user.full_name,
+      email: user.email,
+      mobile: user.mobile,
+      regNumber: user.reg_number,
+      centerName: user.facility_name || 'Regional Eye Centre',
+      isVerified: user.is_verified,
     };
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
     return profile;
   },
 
+  async verifySession(): Promise<UserProfile | null> {
+    const token = this.getToken();
+    if (!token) return null;
+
+    try {
+      const response = await apiClient.get<LoginApiResponse['user']>('/api/v1/auth/me');
+      const user = response.data;
+      const profile: UserProfile = {
+        id: user.role === 'worker' ? `HW-${user.id}` : `DR-${user.id}`,
+        role: user.role,
+        name: user.full_name,
+        email: user.email,
+        mobile: user.mobile,
+        regNumber: user.reg_number,
+        centerName: user.facility_name || 'Health Facility',
+        isVerified: user.is_verified,
+      };
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
+      return profile;
+    } catch {
+      this.logout();
+      return null;
+    }
+  },
+
   logout(): void {
+    localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   },
 
   isAuthenticated(): boolean {
-    return this.getCurrentUser() !== null;
+    return this.getToken() !== null && this.getCurrentUser() !== null;
   },
 
   hasRole(role: UserRole): boolean {

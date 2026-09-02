@@ -3,66 +3,86 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { AppHeader } from '@/components/layout/AppHeader';
 import { caseService } from '@/services/caseService';
-import { ScreeningCase } from '@/types/api';
 
 const DoctorDashboardPage: React.FC = () => {
   const { user } = useAuth();
 
-  const [cases, setCases] = useState<ScreeningCase[]>([]);
+  const [cases, setCases] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
-    urgentCases: 0,
+    totalCases: 0,
     newReferrals: 0,
-    underReview: 0,
+    highPriority: 0,
+    inReview: 0,
     completed: 0,
   });
-  const [filterPriority, setFilterPriority] = useState<string>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'NEW' | 'HIGH_PRIORITY' | 'IN_REVIEW' | 'COMPLETED'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const data = await caseService.getDoctorCases();
+      setCases(data.cases || []);
+      setMetrics({
+        totalCases: data.total_cases,
+        newReferrals: data.new_referrals,
+        highPriority: data.high_priority,
+        inReview: data.in_review,
+        completed: data.completed,
+      });
+    } catch (err) {
+      console.error('Failed to load doctor cases:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadedCases = caseService.getAllCases();
-    setCases(loadedCases);
-    setMetrics(caseService.getDoctorMetrics());
+    loadData();
   }, []);
 
   const filteredCases = cases.filter((c) => {
-    // Only show cases relevant to clinical review queue (referred or requiring doctor input)
-    if (filterPriority !== 'ALL' && c.priority !== filterPriority) {
-      return false;
-    }
+    if (activeTab === 'NEW' && c.status !== 'PENDING') return false;
+    if (activeTab === 'HIGH_PRIORITY' && c.priority !== 'HIGH' && c.priority !== 'CRITICAL') return false;
+    if (activeTab === 'IN_REVIEW' && c.status !== 'IN_REVIEW') return false;
+    if (activeTab === 'COMPLETED' && c.status !== 'COMPLETED') return false;
 
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
       c.id.toLowerCase().includes(q) ||
-      c.patient.patientId.toLowerCase().includes(q) ||
-      c.location.district.toLowerCase().includes(q) ||
-      c.screeningResult?.classification.severity.toLowerCase().includes(q)
+      c.patientId.toLowerCase().includes(q) ||
+      c.location.toLowerCase().includes(q) ||
+      c.severity.toLowerCase().includes(q)
     );
   });
 
-  const getPriorityBadge = (priority: string) => {
+  const getPriorityBadge = (priority: string, grade: number) => {
     switch (priority) {
       case 'CRITICAL':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse">CRITICAL · LEVEL 4</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-red-500/20 text-red-300 border border-red-500/40 animate-pulse">CRITICAL · LEVEL {grade}</span>;
       case 'HIGH':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-orange-500/20 text-orange-300 border border-orange-500/40">HIGH · LEVEL 3</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-orange-500/20 text-orange-300 border border-orange-500/40">HIGH · LEVEL {grade}</span>;
       case 'MEDIUM':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">MEDIUM · LEVEL 2</span>;
-      case 'REVIEW':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-lime-500/20 text-lime-300 border border-lime-500/40">REVIEW · LEVEL 1</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">MEDIUM · LEVEL {grade}</span>;
       default:
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-white/10 text-neutral-400">ROUTINE</span>;
+        return <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-lime-500/20 text-lime-300 border border-lime-500/40">REVIEW · LEVEL {grade}</span>;
     }
   };
 
   const getTimeAgo = (dateStr: string) => {
-    const diffMs = Date.now() - new Date(dateStr).getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins} min ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours} hr ago`;
-    return new Date(dateStr).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    try {
+      const diffMs = Date.now() - new Date(dateStr).getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      if (diffMins < 1) return 'Just now';
+      if (diffMins < 60) return `${diffMins} min ago`;
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours < 24) return `${diffHours} hr ago`;
+      return new Date(dateStr).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    } catch {
+      return 'Recently';
+    }
   };
 
   return (
@@ -74,7 +94,7 @@ const DoctorDashboardPage: React.FC = () => {
         <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono mb-2">
-              <span>{user?.regNumber || 'Medical Council Verified'} · {user?.centerName || 'Regional Eye Centre'}</span>
+              <span>{user?.regNumber || 'Medical Professional'} · {user?.centerName || 'Regional Eye Centre'}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold font-['Syne'] text-white">
               Clinical Review Queue
@@ -85,179 +105,175 @@ const DoctorDashboardPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono text-neutral-400">Triage Priority: Level 4 → Level 1</span>
+            <span className="text-xs font-mono text-neutral-400">Clinical Priority: Level 4 Critical → Level 1 Review</span>
           </div>
         </div>
 
-        {/* Quick Status Metrics (No Pie Charts) */}
+        {/* Quick Status Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <div className="p-5 rounded-2xl bg-[#0b0c10] border border-red-500/20 hover:border-red-500/40 transition-colors">
+          <div
+            onClick={() => setActiveTab('HIGH_PRIORITY')}
+            className={`p-5 rounded-2xl bg-[#0b0c10] border cursor-pointer transition-all ${
+              activeTab === 'HIGH_PRIORITY' ? 'border-red-500 ring-1 ring-red-500' : 'border-red-500/20 hover:border-red-500/40'
+            }`}
+          >
             <div className="flex items-center justify-between text-neutral-400 text-xs font-medium mb-3">
-              <span>Urgent Cases (PDR / Severe)</span>
+              <span>High Priority (PDR/Severe)</span>
               <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
             </div>
-            <p className="text-3xl font-bold font-['Syne'] text-red-400 tracking-tight">{metrics.urgentCases}</p>
-            <p className="text-[11px] text-neutral-500 mt-1">Requires immediate review</p>
+            <p className="text-3xl font-bold font-['Syne'] text-red-400 tracking-tight">
+              {loading ? '...' : metrics.highPriority}
+            </p>
+            <p className="text-[11px] text-neutral-500 mt-1">Requires fast-track review</p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0b0c10] border border-white/[0.06] hover:border-white/10 transition-colors">
+          <div
+            onClick={() => setActiveTab('NEW')}
+            className={`p-5 rounded-2xl bg-[#0b0c10] border cursor-pointer transition-all ${
+              activeTab === 'NEW' ? 'border-amber-500 ring-1 ring-amber-500' : 'border-amber-500/20 hover:border-amber-500/40'
+            }`}
+          >
             <div className="flex items-center justify-between text-neutral-400 text-xs font-medium mb-3">
               <span>New Referrals</span>
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
             </div>
-            <p className="text-3xl font-bold font-['Syne'] text-amber-400 tracking-tight">{metrics.newReferrals}</p>
-            <p className="text-[11px] text-neutral-500 mt-1">Awaiting clinical review</p>
+            <p className="text-3xl font-bold font-['Syne'] text-amber-400 tracking-tight">
+              {loading ? '...' : metrics.newReferrals}
+            </p>
+            <p className="text-[11px] text-neutral-500 mt-1">Awaiting initial inspection</p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0b0c10] border border-white/[0.06] hover:border-white/10 transition-colors">
+          <div
+            onClick={() => setActiveTab('IN_REVIEW')}
+            className={`p-5 rounded-2xl bg-[#0b0c10] border cursor-pointer transition-all ${
+              activeTab === 'IN_REVIEW' ? 'border-teal-500 ring-1 ring-teal-500' : 'border-teal-500/20 hover:border-teal-500/40'
+            }`}
+          >
             <div className="flex items-center justify-between text-neutral-400 text-xs font-medium mb-3">
               <span>Under Review</span>
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              <span className="w-2 h-2 rounded-full bg-teal-400" />
             </div>
-            <p className="text-3xl font-bold font-['Syne'] text-cyan-400 tracking-tight">{metrics.underReview}</p>
-            <p className="text-[11px] text-neutral-500 mt-1">In examination progress</p>
+            <p className="text-3xl font-bold font-['Syne'] text-teal-300 tracking-tight">
+              {loading ? '...' : metrics.inReview}
+            </p>
+            <p className="text-[11px] text-neutral-500 mt-1">In progress cases</p>
           </div>
 
-          <div className="p-5 rounded-2xl bg-[#0b0c10] border border-white/[0.06] hover:border-white/10 transition-colors">
+          <div
+            onClick={() => setActiveTab('COMPLETED')}
+            className={`p-5 rounded-2xl bg-[#0b0c10] border cursor-pointer transition-all ${
+              activeTab === 'COMPLETED' ? 'border-emerald-500 ring-1 ring-emerald-500' : 'border-emerald-500/20 hover:border-emerald-500/40'
+            }`}
+          >
             <div className="flex items-center justify-between text-neutral-400 text-xs font-medium mb-3">
-              <span>Decisions Completed</span>
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+              <span>Completed</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
             </div>
-            <p className="text-3xl font-bold font-['Syne'] text-emerald-400 tracking-tight">{metrics.completed}</p>
-            <p className="text-[11px] text-neutral-500 mt-1">Reports digitally signed</p>
+            <p className="text-3xl font-bold font-['Syne'] text-emerald-400 tracking-tight">
+              {loading ? '...' : metrics.completed}
+            </p>
+            <p className="text-[11px] text-neutral-500 mt-1">Decisions submitted & reported</p>
           </div>
         </div>
 
-        {/* Clinical Case Queue Table */}
-        <div className="rounded-3xl bg-[#0b0c10] border border-white/[0.08] overflow-hidden">
-          {/* Filters & Search Toolbar */}
-          <div className="p-6 border-b border-white/[0.06] flex flex-col md:flex-row md:items-center justify-between gap-4">
-            {/* Priority Tabs */}
-            <div className="flex flex-wrap items-center gap-1 bg-black/40 p-1 rounded-xl border border-white/5">
-              {[
-                { key: 'ALL', label: 'All Cases' },
-                { key: 'CRITICAL', label: 'Critical (PDR)' },
-                { key: 'HIGH', label: 'High (Severe)' },
-                { key: 'MEDIUM', label: 'Medium (Moderate)' },
-              ].map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => setFilterPriority(tab.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    filterPriority === tab.key
-                      ? 'bg-white text-black font-semibold shadow-sm'
-                      : 'text-neutral-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Search */}
-            <div className="relative w-full md:w-64">
-              <input
-                type="text"
-                placeholder="Search case, district..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-400 transition-colors"
-              />
-              <svg
-                className="absolute left-3 top-2.5 text-neutral-500"
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
+        {/* Filter Tabs & Search Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#0e0f14] border border-white/5 overflow-x-auto">
+            {[
+              { id: 'ALL', label: 'All Cases' },
+              { id: 'NEW', label: 'New' },
+              { id: 'HIGH_PRIORITY', label: 'High Priority' },
+              { id: 'IN_REVIEW', label: 'In Review' },
+              { id: 'COMPLETED', label: 'Completed' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-white text-black font-semibold shadow-sm'
+                    : 'text-neutral-400 hover:text-white hover:bg-white/5'
+                }`}
               >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </div>
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {/* Queue List */}
+          <div className="relative max-w-xs w-full">
+            <input
+              type="text"
+              placeholder="Search case, patient ID, district..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+        </div>
+
+        {/* Clinical Cases Queue Table */}
+        <div className="rounded-2xl bg-[#090a0d] border border-white/[0.08] overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-white/[0.04] bg-white/[0.01] text-[11px] font-mono text-neutral-400 uppercase tracking-wider">
-                  <th className="py-3.5 px-6">Priority</th>
-                  <th className="py-3.5 px-4">Case ID</th>
-                  <th className="py-3.5 px-4">Origin / District</th>
-                  <th className="py-3.5 px-4">AI DR Classification</th>
-                  <th className="py-3.5 px-4">AI Confidence</th>
-                  <th className="py-3.5 px-4">Received</th>
-                  <th className="py-3.5 px-4">Review Status</th>
-                  <th className="py-3.5 px-6 text-right">Clinical Action</th>
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#111218] text-neutral-400 font-mono text-[11px] border-b border-white/5">
+                <tr>
+                  <th className="py-3.5 px-4 font-normal">Priority</th>
+                  <th className="py-3.5 px-4 font-normal">Case ID</th>
+                  <th className="py-3.5 px-4 font-normal">Patient</th>
+                  <th className="py-3.5 px-4 font-normal">Location</th>
+                  <th className="py-3.5 px-4 font-normal">AI Assessment</th>
+                  <th className="py-3.5 px-4 font-normal">AI Confidence</th>
+                  <th className="py-3.5 px-4 font-normal">Received</th>
+                  <th className="py-3.5 px-4 font-normal text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.03] text-xs">
-                {filteredCases.map((c) => (
-                  <tr key={c.id} className="hover:bg-white/[0.02] transition-colors group">
-                    <td className="py-4 px-6">{getPriorityBadge(c.priority)}</td>
-                    <td className="py-4 px-4 font-mono font-bold text-white">
-                      {c.id}
-                      <span className="block text-[10px] font-normal text-neutral-500">
-                        {c.patient.patientId} · {c.patient.age}y {c.patient.gender}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="text-neutral-200 font-medium">{c.location.district}</span>
-                      <span className="block text-[10px] text-neutral-500 truncate max-w-[140px]">
-                        {c.location.centerName}
-                      </span>
-                    </td>
-                    <td className="py-4 px-4">
-                      <span className="font-semibold text-white">
-                        {c.screeningResult?.classification.severity || 'Analysis Pending'}
-                      </span>
-                      <span className="block text-[10px] text-neutral-400">
-                        Quality: {c.screeningResult?.quality.score}% · FIQA Passed
-                      </span>
-                    </td>
-                    <td className="py-4 px-4 font-mono text-neutral-300">
-                      {c.screeningResult
-                        ? `${Math.round(c.screeningResult.classification.confidence * 100)}%`
-                        : '—'}
-                    </td>
-                    <td className="py-4 px-4 text-neutral-400 font-mono text-[11px]">
-                      {getTimeAgo(c.createdAt)}
-                    </td>
-                    <td className="py-4 px-4">
-                      {c.doctorReview ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          ✓ Decision Signed
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-500/10 text-amber-300 border border-amber-500/20">
-                          Pending Review
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <Link
-                        to={`/doctor/cases/${c.id}`}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-emerald-400 text-black font-semibold text-xs transition-colors shadow-sm"
-                      >
-                        <span>{c.doctorReview ? 'View Review' : 'Open Case'}</span>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14" />
-                          <path d="M12 5l7 7-7 7" />
-                        </svg>
-                      </Link>
+              <tbody className="divide-y divide-white/5 text-neutral-300">
+                {filteredCases.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-neutral-500">
+                      {loading ? 'Loading review queue from database...' : 'No cases matching the selected filter.'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  filteredCases.map((c) => (
+                    <tr key={c.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-4 px-4">
+                        {getPriorityBadge(c.priority, c.drGrade)}
+                      </td>
+                      <td className="py-4 px-4 font-mono font-semibold text-white">
+                        {c.id}
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="font-semibold text-white">{c.patientId}</p>
+                        <p className="text-[11px] text-neutral-400">{c.age} yrs · {c.gender}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="text-white">{c.location}</p>
+                        <p className="text-[11px] text-neutral-400 truncate max-w-[150px]">{c.centerName}</p>
+                      </td>
+                      <td className="py-4 px-4">
+                        <p className="font-semibold text-white">{c.severity}</p>
+                        <p className="text-[10px] font-mono text-neutral-400">FIQA Quality: {c.qualityScore}%</p>
+                      </td>
+                      <td className="py-4 px-4 font-mono">
+                        <span className="text-teal-400 font-semibold">{Math.round(c.confidence * 100)}%</span>
+                      </td>
+                      <td className="py-4 px-4 font-mono text-neutral-400">
+                        {getTimeAgo(c.createdAt)}
+                      </td>
+                      <td className="py-4 px-4 text-right">
+                        <Link
+                          to={`/doctor/cases/${c.id}`}
+                          className="inline-flex items-center px-3.5 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500 text-emerald-300 hover:text-black font-semibold text-xs border border-emerald-500/30 transition-all shadow-sm"
+                        >
+                          Review Case →
+                        </Link>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
-
-            {filteredCases.length === 0 && (
-              <div className="py-12 text-center text-neutral-500 text-xs">
-                No matching referred cases in the queue.
-              </div>
-            )}
           </div>
         </div>
       </main>

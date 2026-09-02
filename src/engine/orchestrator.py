@@ -1,6 +1,6 @@
 """
 RuralDR-XAI Master Pipeline Orchestrator
-Executes the complete 10-stage screening workflow.
+Executes the complete 10-stage screening workflow with multi-gate safety checks.
 """
 
 from typing import Tuple, Dict, Any, Optional
@@ -11,11 +11,14 @@ import numpy as np
 import torch
 
 from ..core.contracts import (
+    ModalityStatus,
+    PipelineStatus,
     QualityStatus,
     ReviewPriority,
     RetinalAnatomy,
     ScreeningResult,
 )
+from ..quality.modality import FundusModalityDetector
 from ..quality.gate import ImageQualityGate
 from ..preprocess.enhance import AdaptiveEnhancer
 from ..anatomy.vessel_filter import segment_retinal_vessels
@@ -38,10 +41,12 @@ class ScreeningOrchestrator:
     def __init__(
         self,
         classifier: Optional[DRClassifier] = None,
+        modality_detector: Optional[FundusModalityDetector] = None,
         temperature_scaler: Optional[TemperatureScaler] = None,
         device: torch.device = torch.device("cpu"),
     ):
         self.device = device
+        self.modality_detector = modality_detector or FundusModalityDetector(device=self.device)
         self.quality_gate = ImageQualityGate()
         self.enhancer = AdaptiveEnhancer()
         self.lesion_detector = LesionEvidenceDetector()
@@ -63,7 +68,7 @@ class ScreeningOrchestrator:
         case_id: Optional[str] = None,
     ) -> Tuple[ScreeningResult, Dict[str, np.ndarray]]:
         """
-        Processes a single retinal fundus image through all 10 stages.
+        Processes a single retinal fundus image through all pipeline stages.
 
         Returns:
             result: Structured ScreeningResult contract
@@ -88,34 +93,62 @@ class ScreeningOrchestrator:
             raise TypeError("Expected image file path or numpy array.")
 
         timestamp_str = datetime.now().isoformat()
-
-        # 2. Stage 1: Quality Gate
-        quality = self.quality_gate.evaluate(image_rgb)
         visual_layers = {"original": image_rgb}
 
-        # Ungradable Safety Interlock: Stop immediately if ungradable
-        if not quality.is_gradeable:
-            empty_anatomy = RetinalAnatomy()
-            empty_lesions = self.lesion_detector.detect(image_rgb, empty_anatomy)[0]
+        # 2. Stage 1: Fundus Modality Gate (Pre-Classification Out-Of-Domain Verification)
+        modality = self.modality_detector.verify(image_rgb)
+
+        if not modality.is_fundus:
+            if modality.status == ModalityStatus.NON_FUNDUS:
+                triage_msg = "REJECTED (NON-FUNDUS): The uploaded image does not appear to be a retinal fundus photograph."
+                p_status = PipelineStatus.REJECTED
+            else:
+                triage_msg = "UNCERTAIN MODALITY: Image could not be confidently verified as a retinal fundus photograph."
+                p_status = PipelineStatus.UNCERTAIN
+
             result = ScreeningResult(
                 case_id=case_id,
                 timestamp=timestamp_str,
-                quality=quality,
-                anatomy=empty_anatomy,
-                lesions=empty_lesions,
+                status=p_status,
+                modality=modality,
+                quality=None,
+                anatomy=None,
+                lesions=None,
                 prediction=None,
                 evidence_consistency=None,
+                rejection_reason=modality.rejection_reason,
+                triage_decision=triage_msg,
+                review_priority=ReviewPriority.HIGH,
+            )
+            return result, visual_layers
+
+        # 3. Stage 2: Quality Gate (FIQA)
+        quality = self.quality_gate.evaluate(image_rgb)
+
+        # Ungradable Safety Interlock: Stop immediately if ungradable
+        if not quality.is_gradeable:
+            result = ScreeningResult(
+                case_id=case_id,
+                timestamp=timestamp_str,
+                status=PipelineStatus.UNGRADABLE,
+                modality=modality,
+                quality=quality,
+                anatomy=None,
+                lesions=None,
+                prediction=None,
+                evidence_consistency=None,
+                rejection_reason="Image failed quality gate. Please recapture following advice.",
                 triage_decision="UNGRADABLE: Image failed quality gate. Perform immediate recapture using advice.",
                 review_priority=ReviewPriority.HIGH,
             )
             return result, visual_layers
 
-        # 3. Stage 2: Adaptive Enhancement
+        # 4. Stage 3: Adaptive Enhancement
         enhanced_rgb, mask, _ = self.enhancer.process(image_rgb)
         visual_layers["enhanced"] = enhanced_rgb
         visual_layers["retinal_mask"] = mask
 
-        # 4. Stage 3: Retinal Anatomy Localization
+        # 5. Stage 4: Retinal Anatomy Localization
         vessel_mask, vessel_density = segment_retinal_vessels(enhanced_rgb, mask)
         od_center, od_radius, od_bbox = locate_optic_disc(enhanced_rgb, mask)
         fovea_center = locate_fovea(enhanced_rgb, od_center, od_radius, vessel_mask, mask)
@@ -130,13 +163,13 @@ class ScreeningOrchestrator:
         )
         visual_layers["vessel_mask"] = vessel_mask
 
-        # 5. Stage 4: Lesion-Level Evidence Extraction
+        # 6. Stage 5: Lesion-Level Evidence Extraction
         lesion_inventory, lesion_masks = self.lesion_detector.detect(
             enhanced_rgb, anatomy, vessel_mask, mask
         )
         visual_layers.update(lesion_masks)
 
-        # 6. Stage 5: Deep DR Severity Classification & Calibration
+        # 7. Stage 6: Deep DR Severity Classification & Calibration
         if self.classifier is not None:
             # Prepare tensor (1, 3, H, W) normalized [0, 1] then ImageNet mean/std
             img_float = enhanced_rgb.astype(np.float32) / 255.0
@@ -147,38 +180,40 @@ class ScreeningOrchestrator:
 
             prediction = self.classifier.predict(tensor_in, self.temperature_scaler)
 
-            # 7. Stage 6: Explainable AI (Grad-CAM)
-            cam_heatmap, cam_mask = self.gradcam.generate(
-                tensor_in, target_class=prediction.predicted_grade.value
-            )
-            visual_layers["gradcam_heatmap"] = cam_heatmap
-            visual_layers["gradcam_mask"] = cam_mask
+            # 8. Stage 7: Explainable AI (Grad-CAM)
+            if self.gradcam is not None:
+                cam_heatmap, cam_mask = self.gradcam.generate(
+                    tensor_in, target_class=prediction.predicted_grade.value
+                )
+                visual_layers["gradcam_heatmap"] = cam_heatmap
+                visual_layers["gradcam_mask"] = cam_mask
+            else:
+                cam_heatmap = None
 
-            # 8. Stage 7: Evidence Consistency Engine
+            # 9. Stage 8: Evidence Consistency Engine
             consistency = self.consistency_engine.evaluate(
                 prediction=prediction,
                 lesion_inventory=lesion_inventory,
                 lesion_masks=lesion_masks,
-                cam_mask=cam_mask,
+                cam_mask=visual_layers.get("gradcam_mask"),
                 cam_heatmap=cam_heatmap,
                 anatomy=anatomy,
             )
 
-            # 9. Stage 8 & 9: Triage Decision
+            # 10. Stage 9: Triage Decision
             triage_msg, priority = evaluate_triage_decision(
                 prediction=prediction,
                 lesions=lesion_inventory,
-                concordance_status=consistency.status.value,
+                concordance_status=consistency.status.value if consistency else "UNKNOWN",
             )
         else:
-            # Model not yet loaded/trained: produce evidence-only baseline
             prediction = None
             consistency = None
             cam_heatmap = None
             triage_msg = "MODEL NOT LOADED: Anatomy and morphological lesion extraction complete."
             priority = ReviewPriority.ROUTINE
 
-        # 10. Stage 10: Composite Annotated Visual Overlay
+        # 11. Stage 10: Composite Annotated Visual Overlay
         composite_view = create_comprehensive_annotated_fundus(
             image_rgb=enhanced_rgb,
             anatomy=anatomy,
@@ -193,6 +228,8 @@ class ScreeningOrchestrator:
         result = ScreeningResult(
             case_id=case_id,
             timestamp=timestamp_str,
+            status=PipelineStatus.SUCCESS,
+            modality=modality,
             quality=quality,
             anatomy=anatomy,
             lesions=lesion_inventory,

@@ -3,6 +3,8 @@ import { getGradCamOverlaySvg, getLesionMaskOverlaySvg } from '@/services/sample
 
 interface MedicalRetinaViewerProps {
   imageUrl: string;
+  gradCamUrl?: string;
+  lesionOverlayUrl?: string;
   grade?: number;
   altText?: string;
   className?: string;
@@ -13,6 +15,8 @@ export type ActiveOverlay = 'original' | 'gradcam' | 'lesions';
 
 export const MedicalRetinaViewer: React.FC<MedicalRetinaViewerProps> = ({
   imageUrl,
+  gradCamUrl,
+  lesionOverlayUrl,
   grade = 2,
   altText = 'Retinal Fundus Image',
   className = '',
@@ -27,8 +31,8 @@ export const MedicalRetinaViewer: React.FC<MedicalRetinaViewerProps> = ({
   const [showGrid, setShowGrid] = useState<boolean>(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const gradCamOverlayUrl = getGradCamOverlaySvg(grade);
-  const lesionOverlayUrl = getLesionMaskOverlaySvg(grade);
+  const activeGradCamUrl = gradCamUrl || getGradCamOverlaySvg(grade);
+  const activeLesionUrl = lesionOverlayUrl || getLesionMaskOverlaySvg(grade);
 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.5, 4));
   const handleZoomOut = () => {
@@ -119,179 +123,124 @@ export const MedicalRetinaViewer: React.FC<MedicalRetinaViewerProps> = ({
               </div>
             )}
 
-            <button
-              onClick={() => setShowGrid((prev) => !prev)}
-              className={`p-1.5 rounded-lg text-xs transition-colors border ${
-                showGrid
-                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
-                  : 'text-neutral-400 hover:text-white bg-black/30 border-white/5'
-              }`}
-              title="Toggle Retinal Quadrant Grid"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="12" y1="3" x2="12" y2="21" />
-              </svg>
-            </button>
-
-            <div className="flex items-center bg-black/40 rounded-lg border border-white/5 overflow-hidden text-xs">
+            <div className="flex items-center gap-1 bg-black/40 p-1 rounded-lg border border-white/5">
+              <button
+                onClick={handleZoomIn}
+                title="Zoom In"
+                className="w-7 h-7 rounded flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 text-xs"
+              >
+                +
+              </button>
+              <span className="text-[11px] font-mono text-neutral-300 px-1">{zoom.toFixed(1)}x</span>
               <button
                 onClick={handleZoomOut}
-                disabled={zoom <= 1}
-                className="px-2.5 py-1.5 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-                title="Zoom out"
+                title="Zoom Out"
+                className="w-7 h-7 rounded flex items-center justify-center text-neutral-400 hover:text-white hover:bg-white/10 text-xs"
               >
                 -
               </button>
-              <span className="px-2 text-neutral-300 font-mono text-[11px] min-w-[40px] text-center">
-                {zoom.toFixed(1)}x
-              </span>
               <button
-                onClick={handleZoomIn}
-                disabled={zoom >= 4}
-                className="px-2.5 py-1.5 text-neutral-400 hover:text-white disabled:opacity-30 transition-colors"
-                title="Zoom in"
+                onClick={handleReset}
+                title="Reset View"
+                className="px-2 py-1 rounded text-[10px] font-mono text-neutral-400 hover:text-white hover:bg-white/10"
               >
-                +
+                Reset
               </button>
             </div>
 
             <button
-              onClick={handleReset}
-              className="px-2.5 py-1.5 rounded-lg text-xs text-neutral-400 hover:text-white bg-black/40 border border-white/5 hover:border-white/10 transition-colors"
-              title="Reset Zoom & Pan"
+              onClick={() => setShowGrid((prev) => !prev)}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-mono transition-colors ${
+                showGrid
+                  ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                  : 'bg-black/40 text-neutral-400 hover:text-white border border-white/5'
+              }`}
             >
-              Reset
+              Grid
             </button>
           </div>
         </div>
       )}
 
-      {/* Main Canvas Viewport */}
+      {/* Main Image Viewport Area */}
       <div
         ref={containerRef}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className={`relative aspect-square w-full max-h-[520px] bg-black flex items-center justify-center overflow-hidden select-none ${
-          zoom > 1 ? (isDragging ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+        className={`relative aspect-square sm:aspect-[4/3] w-full bg-[#050507] flex items-center justify-center overflow-hidden select-none ${
+          zoom > 1 ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
         }`}
       >
-        {/* Retinal Image Container with Pan/Zoom Transform */}
+        {/* Retinal Image Layers */}
         <div
           style={{
-            transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
-            transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transition: isDragging ? 'none' : 'transform 0.15s ease-out',
+            transformOrigin: 'center center',
           }}
-          className="relative w-full h-full flex items-center justify-center pointer-events-none"
+          className="relative w-full h-full flex items-center justify-center max-w-[800px] max-h-[800px]"
         >
           {/* Base Fundus Image */}
-          <img
-            src={imageUrl}
-            alt={altText}
-            className="w-full h-full object-contain max-h-[520px]"
-            draggable={false}
-          />
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={altText}
+              className="w-full h-full object-contain pointer-events-none"
+            />
+          ) : (
+            <div className="text-xs text-neutral-500 font-mono">No Image Loaded</div>
+          )}
 
           {/* Grad-CAM Heatmap Layer */}
-          {activeOverlay === 'gradcam' && (
-            <img
-              src={gradCamOverlayUrl}
-              alt="Grad-CAM Class Activation Map"
+          {activeOverlay === 'gradcam' && activeGradCamUrl && (
+            <div
               style={{ opacity: heatmapOpacity }}
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none mix-blend-screen transition-opacity"
-              draggable={false}
-            />
+              className="absolute inset-0 pointer-events-none transition-opacity duration-200 flex items-center justify-center"
+            >
+              <img
+                src={activeGradCamUrl}
+                alt="AI Grad-CAM Overlay"
+                className="w-full h-full object-contain mix-blend-screen"
+              />
+            </div>
           )}
 
-          {/* Lesion Segmentation Mask Layer */}
-          {activeOverlay === 'lesions' && (
-            <img
-              src={lesionOverlayUrl}
-              alt="Lesion Segmentation Overlay"
-              className="absolute inset-0 w-full h-full object-contain pointer-events-none transition-opacity"
-              draggable={false}
-            />
-          )}
-
-          {/* Medical Quadrant Grid Overlay */}
-          {showGrid && (
+          {/* Lesion Segmentation Layer */}
+          {activeOverlay === 'lesions' && activeLesionUrl && (
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-              <div className="w-[90%] h-[90%] border border-cyan-500/20 rounded-full relative">
-                <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
-                  <div className="border-r border-b border-cyan-500/20 p-2 text-[9px] font-mono text-cyan-400/60">
-                    ST (Superior Temporal)
-                  </div>
-                  <div className="border-b border-cyan-500/20 p-2 text-[9px] font-mono text-cyan-400/60 text-right">
-                    SN (Superior Nasal)
-                  </div>
-                  <div className="border-r border-cyan-500/20 p-2 text-[9px] font-mono text-cyan-400/60 flex items-end">
-                    IT (Inferior Temporal)
-                  </div>
-                  <div className="p-2 text-[9px] font-mono text-cyan-400/60 flex items-end justify-end">
-                    IN (Inferior Nasal)
-                  </div>
+              <img
+                src={activeLesionUrl}
+                alt="Lesion Segmentation Overlay"
+                className="w-full h-full object-contain"
+              />
+            </div>
+          )}
+
+          {/* Calibrated Clinical Grid Overlay */}
+          {showGrid && (
+            <div className="absolute inset-0 pointer-events-none grid grid-cols-4 grid-rows-4 border border-teal-500/20">
+              {Array.from({ length: 16 }).map((_, i) => (
+                <div key={i} className="border border-teal-500/10 flex items-start p-1">
+                  <span className="text-[9px] font-mono text-teal-400/40">{`Q${i + 1}`}</span>
                 </div>
-                {/* Central Foveal Circle Target */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 border border-dashed border-yellow-400/40 rounded-full" />
-              </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* Viewport Meta Badges */}
-        <div className="absolute bottom-3 left-3 flex items-center gap-2 pointer-events-none">
-          <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-mono text-neutral-300">
-            Field: 45° Posterior Pole
+        {/* Bottom Left Mode Badge */}
+        <div className="absolute bottom-3 left-3 pointer-events-none">
+          <span className="px-2.5 py-1 rounded-md text-[10px] font-mono uppercase bg-black/80 border border-white/10 text-neutral-300 backdrop-blur-md">
+            {activeOverlay === 'original'
+              ? 'Mode: High-Resolution Fundus'
+              : activeOverlay === 'gradcam'
+              ? 'Mode: Grad-CAM Saliency Map'
+              : 'Mode: Lesion Mask Segmentation'}
           </span>
-          <span className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-md border border-white/10 text-[10px] font-mono text-neutral-400">
-            1024×1024 RGB
-          </span>
-        </div>
-
-        {/* Active Overlay Indicator */}
-        <div className="absolute top-3 right-3 pointer-events-none">
-          {activeOverlay === 'gradcam' && (
-            <div className="px-2.5 py-1 rounded-md bg-cyan-950/80 backdrop-blur-md border border-cyan-500/30 text-[10px] text-cyan-300 font-medium flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              <span>Grad-CAM Activation Active</span>
-            </div>
-          )}
-          {activeOverlay === 'lesions' && (
-            <div className="px-2.5 py-1 rounded-md bg-red-950/80 backdrop-blur-md border border-red-500/30 text-[10px] text-red-300 font-medium flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
-              <span>Lesion Segmentation Active</span>
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Legend for Lesion Evidence when active */}
-      {activeOverlay === 'lesions' && (
-        <div className="px-4 py-2.5 bg-[#111114] border-t border-white/[0.08] flex flex-wrap items-center justify-between gap-3 text-xs">
-          <span className="text-neutral-400 font-medium text-[11px]">Detected Biomarkers:</span>
-          <div className="flex flex-wrap items-center gap-4 text-[11px]">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#ff1744]" />
-              <span className="text-neutral-200">Microaneurysms</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#dc2626]" />
-              <span className="text-neutral-200">Hemorrhages</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#fbc02d]" />
-              <span className="text-neutral-200">Hard Exudates</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#38bdf8]" />
-              <span className="text-neutral-200">Cotton Wool Spots</span>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

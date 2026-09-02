@@ -6,7 +6,20 @@ Enforces strict schema consistency across all pipeline stages.
 from enum import Enum
 from typing import List, Dict, Tuple, Optional, Any
 from pydantic import BaseModel, Field
-import numpy as np
+
+
+class ModalityStatus(str, Enum):
+    FUNDUS = "FUNDUS"
+    NON_FUNDUS = "NON_FUNDUS"
+    UNCERTAIN = "UNCERTAIN"
+
+
+class PipelineStatus(str, Enum):
+    SUCCESS = "success"
+    REJECTED = "rejected"
+    UNGRADABLE = "ungradable"
+    UNCERTAIN = "uncertain"
+    ERROR = "error"
 
 
 class QualityStatus(str, Enum):
@@ -43,6 +56,21 @@ class ReviewPriority(str, Enum):
     ELEVATED = "ELEVATED"
     HIGH = "HIGH"
     URGENT = "URGENT"
+
+
+class ModalityVerificationResult(BaseModel):
+    status: ModalityStatus
+    fundus_probability: float = Field(ge=0.0, le=1.0, description="Model probability that image is retinal fundus")
+    confidence: float = Field(ge=0.0, le=1.0)
+    is_fundus: bool
+    rejection_reason: Optional[str] = None
+    color_plausibility_score: float = Field(default=1.0, ge=0.0, le=1.0)
+    geometry_plausibility_score: float = Field(default=1.0, ge=0.0, le=1.0)
+    details: Dict[str, Any] = Field(default_factory=dict)
+    disclaimer: str = (
+        "Pre-classification modality gate. Out-of-domain rejection only. "
+        "Does not medically authenticate ocular pathology."
+    )
 
 
 class QualityMetrics(BaseModel):
@@ -82,7 +110,7 @@ class LesionInventory(BaseModel):
 class SeverityPrediction(BaseModel):
     predicted_grade: DRGrade
     grade_name: str
-    is_referable: bool  # True if Grade >= 2
+    is_referable: bool  # True if Grade >= 1 for screening triage or Grade >= 2
     raw_probabilities: List[float] = Field(description="5-class softmax probabilities [P(0)..P(4)]")
     calibrated_probabilities: List[float] = Field(description="Temperature-scaled calibrated probabilities")
     calibrated_confidence: float = Field(ge=0.0, le=1.0)
@@ -101,11 +129,14 @@ class EvidenceConsistency(BaseModel):
 class ScreeningResult(BaseModel):
     case_id: str
     timestamp: str
-    quality: QualityMetrics
-    anatomy: RetinalAnatomy
-    lesions: LesionInventory
+    status: PipelineStatus = PipelineStatus.SUCCESS
+    modality: Optional[ModalityVerificationResult] = None
+    quality: Optional[QualityMetrics] = None
+    anatomy: Optional[RetinalAnatomy] = None
+    lesions: Optional[LesionInventory] = None
     prediction: Optional[SeverityPrediction] = None
     evidence_consistency: Optional[EvidenceConsistency] = None
+    rejection_reason: Optional[str] = None
     triage_decision: str
     review_priority: ReviewPriority
     disclaimer: str = (
@@ -161,11 +192,17 @@ class ExplainableScreeningResult(BaseModel):
     """Complete Phase 4 explainability pipeline output."""
     case_id: str = ""
     timestamp: str = ""
+    status: PipelineStatus = PipelineStatus.SUCCESS
 
     # Image provenance
     original_image_path: Optional[str] = None
     enhanced_image_path: Optional[str] = None
     inference_image_source: str = "original"  # "original" or "enhanced"
+
+    # Modality gate
+    modality_status: Optional[str] = None
+    modality_verified: bool = False
+    rejection_reason: Optional[str] = None
 
     # Quality gate
     quality_status: str = ""
@@ -186,6 +223,7 @@ class ExplainableScreeningResult(BaseModel):
     segmentation_result: Optional[LesionSegmentationResult] = None
 
     # Timing
+    modality_gate_time_ms: float = 0.0
     quality_gate_time_ms: float = 0.0
     classification_time_ms: float = 0.0
     gradcam_time_ms: float = 0.0

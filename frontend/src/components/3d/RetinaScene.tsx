@@ -264,3 +264,5 @@ export function RetinaScene() {
     </div>
   );
 }
+
+export default RetinaScene;
