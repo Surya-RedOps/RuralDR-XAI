@@ -1,8 +1,19 @@
 import React, { useEffect, useRef } from 'react';
 
-export const FundusCanvas: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const rafRef    = useRef<number>(0);
+interface Props {
+  /** parent passes mouse position relative to the fundus container, normalised -1..1 */
+  mouseX?: number;
+  mouseY?: number;
+  hovered?: boolean;
+}
+
+export const FundusCanvas: React.FC<Props> = ({ mouseX = 0, mouseY = 0, hovered = false }) => {
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
+  const rafRef     = useRef<number>(0);
+  const mouseRef   = useRef({ x: mouseX, y: mouseY, hovered });
+
+  // keep ref in sync without re-running effect
+  useEffect(() => { mouseRef.current = { x: mouseX, y: mouseY, hovered }; }, [mouseX, mouseY, hovered]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -10,191 +21,190 @@ export const FundusCanvas: React.FC = () => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const SIZE = 520;
+    const SIZE = 640;
     canvas.width  = SIZE;
     canvas.height = SIZE;
     const CX = SIZE / 2, CY = SIZE / 2, R = SIZE / 2 - 2;
+    const rnd = (a: number, b: number) => a + Math.random() * (b - a);
 
-    /* ── helpers ── */
-    const rnd  = (a: number, b: number) => a + Math.random() * (b - a);
-    const clip  = () => { ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.clip(); };
+    type Seg = { x1:number; y1:number; x2:number; y2:number; w:number; art:boolean; depth:number };
+    const segments: Seg[] = [];
 
-    /* ── draw static fundus once ── */
+    const buildVessel = (x:number,y:number,angle:number,length:number,width:number,depth:number,isArtery:boolean,seed:number) => {
+      if (depth > 6 || length < 7) return;
+      const s1 = Math.sin(seed * 127.1) * 43758.5453;
+      const s2 = Math.sin(seed * 311.7) * 43758.5453;
+      const jitter = (s1 - Math.floor(s1) - 0.5) * 0.25;
+      const ex = x + Math.cos(angle + jitter) * length;
+      const ey = y + Math.sin(angle + jitter) * length;
+      segments.push({ x1:x, y1:y, x2:ex, y2:ey, w:width, art:isArtery, depth });
+      const spread = 0.32 + (s2 - Math.floor(s2)) * 0.28;
+      buildVessel(ex,ey,angle-spread,length*0.68,width*0.62,depth+1,isArtery,seed+1);
+      buildVessel(ex,ey,angle+spread*0.8,length*0.62,width*0.58,depth+1,isArtery,seed+7);
+    };
+
+    const OX = CX + 88, OY = CY - 12;
+    [
+      {a:-2.5,l:145,w:3.8,art:true, s:1 },{a:-1.9,l:135,w:3.2,art:false,s:10},
+      {a:-1.1,l:155,w:3.6,art:true, s:20},{a:-0.3,l:125,w:3.0,art:false,s:30},
+      {a: 0.4,l:148,w:3.4,art:true, s:40},{a: 1.1,l:138,w:3.1,art:false,s:50},
+      {a: 1.9,l:118,w:2.8,art:true, s:60},{a: 2.7,l:130,w:2.9,art:false,s:70},
+      {a: 3.3,l:110,w:2.6,art:true, s:80},
+    ].forEach(({a,l,w,art,s})=>buildVessel(OX,OY,a,l,w,0,art,s));
+
     const drawFundus = () => {
       ctx.save();
-      ctx.beginPath(); ctx.arc(CX, CY, R, 0, Math.PI * 2); ctx.clip();
+      ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
 
-      /* 1. Base retinal background — warm amber-orange */
-      const bg = ctx.createRadialGradient(CX, CY, 0, CX, CY, R);
-      bg.addColorStop(0,    '#7a3010');
-      bg.addColorStop(0.35, '#6b2a0c');
-      bg.addColorStop(0.7,  '#5a2008');
-      bg.addColorStop(1,    '#3a1205');
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, SIZE, SIZE);
+      // base sphere gradient
+      const bg = ctx.createRadialGradient(CX-60,CY-80,20,CX,CY,R);
+      bg.addColorStop(0,'#9a4018'); bg.addColorStop(0.2,'#7a3010');
+      bg.addColorStop(0.5,'#622408'); bg.addColorStop(0.78,'#4a1a05'); bg.addColorStop(1,'#280a02');
+      ctx.fillStyle=bg; ctx.fillRect(0,0,SIZE,SIZE);
 
-      /* 2. Subtle texture noise */
-      for (let i = 0; i < 18000; i++) {
-        const x = Math.random() * SIZE, y = Math.random() * SIZE;
-        const v = rnd(0, 0.06);
-        ctx.fillStyle = `rgba(255,200,120,${v})`;
-        ctx.fillRect(x, y, 1, 1);
+      // texture
+      for(let i=0;i<28000;i++){
+        const x=Math.random()*SIZE,y=Math.random()*SIZE,v=rnd(0,0.055);
+        ctx.fillStyle=`rgba(255,190,100,${v})`; ctx.fillRect(x,y,1,1);
       }
 
-      /* 3. Radial illumination — brighter centre */
-      const illum = ctx.createRadialGradient(CX, CY - 20, 0, CX, CY, R);
-      illum.addColorStop(0,   'rgba(255,180,80,0.22)');
-      illum.addColorStop(0.5, 'rgba(200,100,30,0.08)');
-      illum.addColorStop(1,   'rgba(0,0,0,0.35)');
-      ctx.fillStyle = illum;
-      ctx.fillRect(0, 0, SIZE, SIZE);
+      // choroidal patches
+      for(let i=0;i<60;i++){
+        const px=rnd(CX-R*0.8,CX+R*0.8),py=rnd(CY-R*0.8,CY+R*0.8),pr=rnd(18,55);
+        const pg=ctx.createRadialGradient(px,py,0,px,py,pr);
+        pg.addColorStop(0,`rgba(30,8,2,${rnd(0.04,0.12)})`); pg.addColorStop(1,'rgba(30,8,2,0)');
+        ctx.fillStyle=pg; ctx.beginPath(); ctx.ellipse(px,py,pr,pr*rnd(0.6,1),rnd(0,Math.PI),0,Math.PI*2); ctx.fill();
+      }
 
-      /* 4. Optic disc — bright yellowish oval, right of centre */
-      const OX = CX + 80, OY = CY - 10;
-      const disc = ctx.createRadialGradient(OX, OY, 0, OX, OY, 52);
-      disc.addColorStop(0,    'rgba(255,240,180,0.95)');
-      disc.addColorStop(0.25, 'rgba(255,210,120,0.85)');
-      disc.addColorStop(0.55, 'rgba(220,150,60,0.5)');
-      disc.addColorStop(1,    'rgba(180,80,20,0)');
-      ctx.fillStyle = disc;
-      ctx.beginPath(); ctx.ellipse(OX, OY, 52, 44, -0.15, 0, Math.PI * 2); ctx.fill();
+      // illumination
+      const illum=ctx.createRadialGradient(CX-30,CY-40,0,CX,CY,R);
+      illum.addColorStop(0,'rgba(255,200,100,0.28)'); illum.addColorStop(0.3,'rgba(220,120,40,0.12)');
+      illum.addColorStop(0.65,'rgba(150,60,10,0.04)'); illum.addColorStop(1,'rgba(0,0,0,0.4)');
+      ctx.fillStyle=illum; ctx.fillRect(0,0,SIZE,SIZE);
 
-      /* disc rim */
-      ctx.strokeStyle = 'rgba(255,220,140,0.35)';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(OX, OY, 38, 32, -0.15, 0, Math.PI * 2); ctx.stroke();
+      // vessels
+      segments.forEach(({x1,y1,x2,y2,w,art,depth})=>{
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+        ctx.strokeStyle=art?`rgba(220,80,50,${0.18-depth*0.02})`:`rgba(160,40,20,${0.14-depth*0.015})`;
+        ctx.lineWidth=Math.max(0.5,w*2.2); ctx.lineCap='round'; ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+        ctx.strokeStyle=art?`rgba(210,65,40,${0.82-depth*0.1})`:`rgba(145,28,18,${0.72-depth*0.09})`;
+        ctx.lineWidth=Math.max(0.4,w); ctx.stroke();
+        if(art&&w>1.2){
+          ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+          ctx.strokeStyle=`rgba(255,140,100,${0.22-depth*0.03})`; ctx.lineWidth=Math.max(0.2,w*0.3); ctx.stroke();
+        }
+      });
 
-      /* 5. Fovea — dark depression left of centre */
-      const FX = CX - 55, FY = CY + 8;
-      const fov = ctx.createRadialGradient(FX, FY, 0, FX, FY, 28);
-      fov.addColorStop(0,   'rgba(30,8,2,0.85)');
-      fov.addColorStop(0.5, 'rgba(60,15,5,0.5)');
-      fov.addColorStop(1,   'rgba(100,30,10,0)');
-      ctx.fillStyle = fov;
-      ctx.beginPath(); ctx.ellipse(FX, FY, 28, 22, 0, 0, Math.PI * 2); ctx.fill();
+      // optic disc
+      const disc=ctx.createRadialGradient(OX-8,OY-8,0,OX,OY,58);
+      disc.addColorStop(0,'rgba(255,248,200,0.98)'); disc.addColorStop(0.18,'rgba(255,230,150,0.92)');
+      disc.addColorStop(0.4,'rgba(240,190,90,0.75)'); disc.addColorStop(0.65,'rgba(210,140,50,0.4)'); disc.addColorStop(1,'rgba(180,80,20,0)');
+      ctx.fillStyle=disc; ctx.beginPath(); ctx.ellipse(OX,OY,58,50,-0.18,0,Math.PI*2); ctx.fill();
+      const cup=ctx.createRadialGradient(OX,OY,0,OX,OY,28);
+      cup.addColorStop(0,'rgba(255,255,220,0.6)'); cup.addColorStop(0.5,'rgba(240,210,140,0.3)'); cup.addColorStop(1,'rgba(200,150,60,0)');
+      ctx.fillStyle=cup; ctx.beginPath(); ctx.ellipse(OX,OY,28,22,-0.18,0,Math.PI*2); ctx.fill();
+      ctx.strokeStyle='rgba(255,230,150,0.3)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.ellipse(OX,OY,44,37,-0.18,0,Math.PI*2); ctx.stroke();
 
-      /* foveal reflex */
-      const fref = ctx.createRadialGradient(FX - 4, FY - 4, 0, FX, FY, 10);
-      fref.addColorStop(0,   'rgba(255,240,200,0.45)');
-      fref.addColorStop(1,   'rgba(255,200,100,0)');
-      ctx.fillStyle = fref;
-      ctx.beginPath(); ctx.ellipse(FX - 4, FY - 4, 10, 7, -0.4, 0, Math.PI * 2); ctx.fill();
+      // fovea
+      const FX=CX-60,FY=CY+10;
+      const fov=ctx.createRadialGradient(FX,FY,0,FX,FY,32);
+      fov.addColorStop(0,'rgba(20,5,1,0.9)'); fov.addColorStop(0.4,'rgba(50,12,4,0.6)'); fov.addColorStop(1,'rgba(100,30,8,0)');
+      ctx.fillStyle=fov; ctx.beginPath(); ctx.ellipse(FX,FY,32,25,0,0,Math.PI*2); ctx.fill();
+      const fref=ctx.createRadialGradient(FX-5,FY-5,0,FX,FY,12);
+      fref.addColorStop(0,'rgba(255,245,210,0.5)'); fref.addColorStop(1,'rgba(255,200,100,0)');
+      ctx.fillStyle=fref; ctx.beginPath(); ctx.ellipse(FX-5,FY-5,12,8,-0.5,0,Math.PI*2); ctx.fill();
 
-      /* 6. Blood vessels — branching from optic disc */
-      const drawVessel = (
-        x: number, y: number,
-        angle: number, length: number,
-        width: number, depth: number,
-        isArtery: boolean
-      ) => {
-        if (depth > 5 || length < 8) return;
-        const ex = x + Math.cos(angle) * length;
-        const ey = y + Math.sin(angle) * length;
-        const cx1 = x + Math.cos(angle - 0.3) * length * 0.5;
-        const cy1 = y + Math.sin(angle - 0.3) * length * 0.5;
-
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-        ctx.quadraticCurveTo(cx1, cy1, ex, ey);
-        ctx.strokeStyle = isArtery
-          ? `rgba(200,60,40,${0.75 - depth * 0.1})`
-          : `rgba(140,30,20,${0.65 - depth * 0.1})`;
-        ctx.lineWidth = Math.max(0.4, width);
-        ctx.lineCap = 'round';
-        ctx.stroke();
-
-        /* branch */
-        const spread = rnd(0.3, 0.55);
-        drawVessel(ex, ey, angle - spread, length * rnd(0.6, 0.78), width * 0.65, depth + 1, isArtery);
-        drawVessel(ex, ey, angle + spread * rnd(0.5, 0.9), length * rnd(0.55, 0.72), width * 0.6, depth + 1, isArtery);
-      };
-
-      /* main trunks from disc */
-      const trunks = [
-        { a: -2.4,  l: 130, w: 3.2, art: true  },
-        { a: -1.8,  l: 120, w: 2.8, art: false },
-        { a: -0.9,  l: 140, w: 3.0, art: true  },
-        { a: -0.2,  l: 110, w: 2.6, art: false },
-        { a:  0.5,  l: 130, w: 2.9, art: true  },
-        { a:  1.3,  l: 120, w: 2.7, art: false },
-        { a:  2.0,  l: 100, w: 2.4, art: true  },
-        { a:  2.8,  l: 115, w: 2.5, art: false },
-      ];
-      trunks.forEach(({ a, l, w, art }) => drawVessel(OX, OY, a, l, w, 0, art));
-
-      /* 7. Subtle vignette */
-      const vig = ctx.createRadialGradient(CX, CY, R * 0.55, CX, CY, R);
-      vig.addColorStop(0,   'rgba(0,0,0,0)');
-      vig.addColorStop(0.7, 'rgba(0,0,0,0.15)');
-      vig.addColorStop(1,   'rgba(0,0,0,0.65)');
-      ctx.fillStyle = vig;
-      ctx.fillRect(0, 0, SIZE, SIZE);
+      // sphere rim shading
+      const sphere=ctx.createRadialGradient(CX,CY,R*0.45,CX,CY,R);
+      sphere.addColorStop(0,'rgba(0,0,0,0)'); sphere.addColorStop(0.6,'rgba(0,0,0,0.08)');
+      sphere.addColorStop(0.82,'rgba(0,0,0,0.3)'); sphere.addColorStop(1,'rgba(0,0,0,0.75)');
+      ctx.fillStyle=sphere; ctx.fillRect(0,0,SIZE,SIZE);
 
       ctx.restore();
     };
 
-    /* ── draw scan overlay each frame ── */
-    const drawScan = (t: number) => {
+    const drawOverlay = (t: number) => {
       ctx.save();
-      clip();
+      ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
 
-      /* slow breathing glow on disc */
-      const pulse = 0.12 + Math.sin(t * 0.0018) * 0.06;
-      const OX = CX + 80, OY = CY - 10;
-      const dg = ctx.createRadialGradient(OX, OY, 0, OX, OY, 55);
-      dg.addColorStop(0,   `rgba(255,240,160,${pulse})`);
-      dg.addColorStop(1,   'rgba(255,200,80,0)');
-      ctx.fillStyle = dg;
-      ctx.beginPath(); ctx.ellipse(OX, OY, 55, 46, -0.15, 0, Math.PI * 2); ctx.fill();
+      const { x: mx, y: my, hovered: isHovered } = mouseRef.current;
 
-      /* scan line */
-      const sy = ((t * 0.04) % (R * 2)) - R + CY;
-      const scanGrad = ctx.createLinearGradient(0, sy - 6, 0, sy + 6);
-      scanGrad.addColorStop(0,   'rgba(6,182,212,0)');
-      scanGrad.addColorStop(0.5, 'rgba(6,182,212,0.35)');
-      scanGrad.addColorStop(1,   'rgba(6,182,212,0)');
-      ctx.fillStyle = scanGrad;
-      ctx.fillRect(CX - R, sy - 6, R * 2, 12);
+      // dynamic specular — follows mouse on hover, drifts slowly when idle
+      const specAngle = isHovered
+        ? Math.atan2(my, mx)
+        : t * 0.004;
+      const specDist  = isHovered ? 0.55 : 0.38;
+      const specIntensity = isHovered ? 0.32 : 0.16;
+      const sx = CX + Math.cos(specAngle - Math.PI) * R * specDist;
+      const sy2 = CY + Math.sin(specAngle - Math.PI) * R * specDist;
+      const spec = ctx.createRadialGradient(sx, sy2, 0, sx, sy2, isHovered ? 140 : 110);
+      spec.addColorStop(0,   `rgba(255,245,210,${specIntensity})`);
+      spec.addColorStop(0.4, `rgba(255,210,140,${specIntensity * 0.35})`);
+      spec.addColorStop(1,   'rgba(255,180,80,0)');
+      ctx.fillStyle = spec; ctx.fillRect(0,0,SIZE,SIZE);
 
-      /* scan line bright centre */
-      ctx.beginPath();
-      ctx.moveTo(CX - R, sy);
-      ctx.lineTo(CX + R, sy);
-      ctx.strokeStyle = 'rgba(6,182,212,0.5)';
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
+      // vessel pulse — stronger on hover
+      const pulseSpeed = isHovered ? 0.045 : 0.022;
+      const pulseAmp   = isHovered ? 0.18  : 0.10;
+      const pulse = 0.5 + Math.sin(t * pulseSpeed) * 0.5;
+      segments.forEach(({x1,y1,x2,y2,w,art,depth})=>{
+        if(depth>2) return;
+        const a = art
+          ? (pulseAmp + pulse * pulseAmp) * (1 - depth * 0.25)
+          : (pulseAmp * 0.5 + pulse * pulseAmp * 0.5) * (1 - depth * 0.25);
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2);
+        ctx.strokeStyle=art?`rgba(255,120,80,${a})`:`rgba(200,60,40,${a*0.7})`;
+        ctx.lineWidth=Math.max(0.5,w*(isHovered?2.0:1.6)); ctx.lineCap='round'; ctx.stroke();
+      });
+
+      // optic disc glow — brighter on hover
+      const discBase = isHovered ? 0.22 : 0.14;
+      const discPulse = discBase + Math.sin(t * 0.018) * 0.07;
+      const dg=ctx.createRadialGradient(OX-6,OY-6,0,OX,OY,65);
+      dg.addColorStop(0,`rgba(255,248,180,${discPulse})`);
+      dg.addColorStop(0.5,`rgba(255,200,80,${discPulse*0.4})`);
+      dg.addColorStop(1,'rgba(255,160,40,0)');
+      ctx.fillStyle=dg; ctx.beginPath(); ctx.ellipse(OX,OY,65,56,-0.18,0,Math.PI*2); ctx.fill();
+
+      // scan line
+      const scanY = ((t * 0.035) % (R * 2.1)) - R * 0.05 + CY - R;
+      const sg=ctx.createLinearGradient(0,scanY-8,0,scanY+8);
+      sg.addColorStop(0,'rgba(6,182,212,0)'); sg.addColorStop(0.5,'rgba(6,182,212,0.28)'); sg.addColorStop(1,'rgba(6,182,212,0)');
+      ctx.fillStyle=sg; ctx.fillRect(CX-R,scanY-8,R*2,16);
+      ctx.beginPath(); ctx.moveTo(CX-R,scanY); ctx.lineTo(CX+R,scanY);
+      ctx.strokeStyle='rgba(6,182,212,0.45)'; ctx.lineWidth=0.7; ctx.stroke();
+
+      // hover edge glow
+      if (isHovered) {
+        const edge = ctx.createRadialGradient(CX,CY,R*0.75,CX,CY,R);
+        edge.addColorStop(0,'rgba(255,140,60,0)');
+        edge.addColorStop(0.7,'rgba(255,120,40,0.06)');
+        edge.addColorStop(1,'rgba(255,100,20,0.18)');
+        ctx.fillStyle=edge; ctx.fillRect(0,0,SIZE,SIZE);
+      }
 
       ctx.restore();
     };
 
-    /* ── static layer drawn once ── */
     drawFundus();
-    const staticData = ctx.getImageData(0, 0, SIZE, SIZE);
-
-    /* ── animation loop ── */
+    const staticData = ctx.getImageData(0,0,SIZE,SIZE);
     let t = 0;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const loop = () => {
-      ctx.putImageData(staticData, 0, 0);
-      drawScan(t);
-      t++;
+      ctx.putImageData(staticData,0,0);
+      drawOverlay(t++);
       rafRef.current = requestAnimationFrame(loop);
     };
-
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!reduced) rafRef.current = requestAnimationFrame(loop);
-
     return () => cancelAnimationFrame(rafRef.current);
   }, []);
 
   return (
     <canvas
       ref={canvasRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        borderRadius: '50%',
-        display: 'block',
-      }}
+      style={{ width:'100%', height:'100%', borderRadius:'50%', display:'block' }}
       aria-label="Photorealistic retinal fundus visualization"
     />
   );

@@ -53,7 +53,9 @@
 
 /* ─── Reset ──────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: auto;
+}
 body {
   background: var(--bg-0);
   color: var(--text-1);
@@ -61,6 +63,8 @@ body {
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  overflow-y: scroll;
+  scroll-behavior: smooth;
 }
 
 /* ─── Scrollbar ──────────────────────────────────────────────────────────── */
@@ -298,6 +302,30 @@ body {
 }
 .sr-scale.visible { opacity: 1; transform: scale(1); }
 
+/* zoom-in: element starts small, grows into place */
+.sr-zoom {
+  opacity: 0;
+  transform: scale(0.82) translateY(24px);
+  transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+}
+.sr-zoom.visible { opacity: 1; transform: scale(1) translateY(0); }
+
+/* zoom-out: element starts oversized, settles down */
+.sr-zoom-out {
+  opacity: 0;
+  transform: scale(1.12) translateY(-16px);
+  transition: opacity 0.55s var(--ease-out), transform 0.55s var(--ease-out);
+}
+.sr-zoom-out.visible { opacity: 1; transform: scale(1) translateY(0); }
+
+/* clip reveal: wipes in from bottom via clip-path */
+.sr-clip {
+  opacity: 0;
+  clip-path: inset(100% 0 0 0);
+  transition: opacity 0.5s var(--ease-out), clip-path 0.6s var(--ease-out);
+}
+.sr-clip.visible { opacity: 1; clip-path: inset(0% 0 0 0); }
+
 /* ─── Keyframes ──────────────────────────────────────────────────────────── */
 @keyframes revealUp {
   from { opacity: 0; transform: translateY(32px); }
@@ -410,6 +438,14 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.6s infinite;
   border-radius: var(--r-md);
+}
+
+/* ─── Landing sections ───────────────────────────────────────────────────── */
+.landing-section {
+  position: relative;
+  min-height: 100vh;
+  background: transparent;
+  overflow: hidden;
 }
 
 /* ─── Full-bleed helpers ─────────────────────────────────────────────────── */

@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 
-export function useScrollReveal(selector = '.sr, .sr-scale, .sr-left, .sr-right') {
+export function useScrollReveal(
+  selector = '.sr, .sr-scale, .sr-left, .sr-right, .sr-zoom, .sr-zoom-out, .sr-clip'
+) {
   useEffect(() => {
     const els = document.querySelectorAll<HTMLElement>(selector);
     if (!els.length) return;
@@ -13,7 +15,7 @@ export function useScrollReveal(selector = '.sr, .sr-scale, .sr-left, .sr-right'
           }
         });
       },
-      { threshold: 0.1, rootMargin: '0px 0px -32px 0px' }
+      { threshold: 0.08, rootMargin: '0px 0px -24px 0px' }
     );
     els.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
