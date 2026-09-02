@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole } from '@/types/api';
-import { authService, MOCK_USERS } from '@/services/authService';
+import { authService } from '@/services/authService';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -36,9 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const quickLogin = async (role: UserRole) => {
     if (role === 'worker') {
-      return loginWorker(MOCK_USERS.worker.email, 'password123');
+      return loginWorker('worker@ruraldrxai.demo', 'password123');
     } else {
-      return loginDoctor(MOCK_USERS.doctor.regNumber || 'MCI-TN-2018-84729', MOCK_USERS.doctor.email, 'password123');
+      return loginDoctor('MCI-TN-2018-84729', 'doctor@ruraldrxai.demo', 'password123');
     }
   };
 

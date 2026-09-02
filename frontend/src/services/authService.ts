@@ -9,27 +9,6 @@ import { UserProfile, UserRole } from '@/types/api';
 const AUTH_STORAGE_KEY = 'ruraldr_auth_user';
 const TOKEN_STORAGE_KEY = 'ruraldr_jwt_token';
 
-export const MOCK_USERS: Record<UserRole, UserProfile> = {
-  worker: {
-    id: 'HW-1',
-    role: 'worker',
-    name: 'Lakshmi Narayanan, ANM',
-    email: 'worker@ruraldrxai.demo',
-    mobile: '+91 98402 12345',
-    centerName: 'Primary Health Centre — Valparai, Coimbatore',
-    isVerified: true,
-  },
-  doctor: {
-    id: 'DR-2',
-    role: 'doctor',
-    name: 'Dr. S. K. Aravind, MS (Ophthalmology)',
-    email: 'doctor@ruraldrxai.demo',
-    mobile: '+91 94431 56789',
-    regNumber: 'MCI-TN-2018-84729',
-    centerName: 'Regional Eye Centre, Coimbatore Medical College Hospital',
-    isVerified: true,
-  },
-};
 
 interface LoginApiResponse {
   access_token: string;

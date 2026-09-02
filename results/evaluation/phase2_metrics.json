@@ -1,0 +1,106 @@
+{
+  "dataset": "APTOS 2019 Blindness Detection (Held-Out Test Split)",
+  "test_samples": 78,
+  "overall_accuracy": 0.47435897435897434,
+  "quadratic_weighted_kappa": 0.7196147585458492,
+  "macro_f1": 0.39462092083210093,
+  "weighted_f1": 0.4856197402781254,
+  "test_ece": 0.10145059227943419,
+  "confusion_matrix": [
+    [
+      17,
+      5,
+      2,
+      0,
+      1
+    ],
+    [
+      3,
+      0,
+      0,
+      0,
+      1
+    ],
+    [
+      4,
+      4,
+      7,
+      2,
+      8
+    ],
+    [
+      0,
+      0,
+      1,
+      5,
+      8
+    ],
+    [
+      0,
+      0,
+      0,
+      2,
+      8
+    ]
+  ],
+  "per_class_metrics": [
+    {
+      "grade": 0,
+      "name": "Grade 0 (No DR)",
+      "samples": 25,
+      "precision": 0.7083333333333334,
+      "sensitivity_recall": 0.68,
+      "specificity": 0.8679245283018868,
+      "f1_score": 0.6938775510204083
+    },
+    {
+      "grade": 1,
+      "name": "Grade 1 (Mild NPDR)",
+      "samples": 4,
+      "precision": 0.0,
+      "sensitivity_recall": 0.0,
+      "specificity": 0.8783783783783784,
+      "f1_score": 0.0
+    },
+    {
+      "grade": 2,
+      "name": "Grade 2 (Moderate NPDR)",
+      "samples": 25,
+      "precision": 0.7,
+      "sensitivity_recall": 0.28,
+      "specificity": 0.9433962264150944,
+      "f1_score": 0.4
+    },
+    {
+      "grade": 3,
+      "name": "Grade 3 (Severe NPDR)",
+      "samples": 14,
+      "precision": 0.5555555555555556,
+      "sensitivity_recall": 0.35714285714285715,
+      "specificity": 0.9375,
+      "f1_score": 0.43478260869565216
+    },
+    {
+      "grade": 4,
+      "name": "Grade 4 (Proliferative DR)",
+      "samples": 10,
+      "precision": 0.3076923076923077,
+      "sensitivity_recall": 0.8,
+      "specificity": 0.7352941176470589,
+      "f1_score": 0.4444444444444444
+    }
+  ],
+  "referable_dr_evaluation": {
+    "sensitivity": 0.8367346938775511,
+    "specificity": 0.8620689655172413,
+    "precision": 0.9111111111111111,
+    "f1_score": 0.8723404255319148,
+    "roc_auc": 0.9359605911330049,
+    "tp": 41,
+    "fn": 8,
+    "fp": 4,
+    "tn": 25
+  },
+  "total_errors": 41,
+  "error_rate": 0.5256410256410257
+}

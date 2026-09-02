@@ -1,0 +1,28 @@
+{
+  "target_size": [
+    224,
+    224
+  ],
+  "crop_retinal_roi": true,
+  "apply_lab_clahe": true,
+  "clahe_clip_limit": 2.0,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "backbone": "resnet18",
+  "num_classes": 5,
+  "class_mapping": {
+    "0": "No Diabetic Retinopathy",
+    "1": "Mild Non-Proliferative DR",
+    "2": "Moderate Non-Proliferative DR",
+    "3": "Severe Non-Proliferative DR",
+    "4": "Proliferative Diabetic Retinopathy"
+  }
+}

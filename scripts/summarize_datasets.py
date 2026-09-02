@@ -11,6 +11,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+# pyrefly: ignore [missing-import]
 from src.core.config import APTOS_DATASET_DIR, IDRID_DATASET_DIR
 
 DR_CLASS_MAP = {

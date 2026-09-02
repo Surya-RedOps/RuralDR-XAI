@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { MOCK_USERS } from '@/services/authService';
 import { SEVERE_NPDR_FUNDUS_SVG } from '@/services/sampleAssets';
 
 const DoctorLoginPage: React.FC = () => {
@@ -16,28 +15,25 @@ const DoctorLoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if ((!regNumber.trim() && !emailOrMobile.trim()) || !password.trim()) {
+      setError('Please enter registration number or email/mobile and password.');
+      return;
+    }
     setError(null);
     setLoading(true);
 
     try {
       await loginDoctor(
-        regNumber || MOCK_USERS.doctor.regNumber || 'MCI-TN-2018-84729',
-        emailOrMobile || MOCK_USERS.doctor.email,
-        password || 'password123'
+        regNumber.trim(),
+        emailOrMobile.trim(),
+        password.trim()
       );
       navigate('/doctor/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Clinical authentication failed.');
+      setError(err.response?.data?.detail || err.message || 'Clinical authentication failed.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleFillDemo = () => {
-    setRegNumber(MOCK_USERS.doctor.regNumber || 'MCI-TN-2018-84729');
-    setEmailOrMobile(MOCK_USERS.doctor.email);
-    setPassword('password123');
-    setError(null);
   };
 
   return (
@@ -102,21 +98,6 @@ const DoctorLoginPage: React.FC = () => {
               <div className="mb-6">
                 <h3 className="text-xl font-bold text-white mb-1 font-['Syne']">Doctor Authentication</h3>
                 <p className="text-xs text-neutral-400">Review AI-assisted retinal screening cases requiring clinical attention.</p>
-              </div>
-
-              {/* Demo Helper Button */}
-              <div className="mb-6 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
-                <div className="text-xs">
-                  <span className="text-emerald-300 font-medium">Demo Doctor: </span>
-                  <span className="font-mono text-neutral-300">Dr. S. K. Aravind</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleFillDemo}
-                  className="px-2.5 py-1 text-[11px] font-semibold rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition-colors"
-                >
-                  Fill Demo
-                </button>
               </div>
 
               {error && (
