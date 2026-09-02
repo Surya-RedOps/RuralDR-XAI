@@ -112,13 +112,31 @@ const DoctorLoginPage: React.FC = () => {
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* 1-Click Auto-Fill Demo Doctor Credentials */}
+                <div className="p-3 rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-between">
+                  <div className="text-xs">
+                    <p className="font-semibold text-white">Vitreoretinal Specialist Account</p>
+                    <p className="text-[10px] font-mono text-teal-300">Reg: MCI-TN-2018-84729 · Dr. S. K. Aravind</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRegNumber('MCI-TN-2018-84729');
+                      setEmailOrMobile('doctor@ruraldrxai.demo');
+                      setPassword('password123');
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-black text-xs font-bold transition-all shadow-md"
+                  >
+                    ⚡ Auto-Fill
+                  </button>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-neutral-300 mb-1.5">
-                    Medical Council Registration Number
+                    Medical Council Registration Number (or Email)
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="e.g. MCI-TN-2018-84729"
                     value={regNumber}
                     onChange={(e) => setRegNumber(e.target.value)}
@@ -132,7 +150,6 @@ const DoctorLoginPage: React.FC = () => {
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="e.g. doctor@ruraldrxai.demo"
                     value={emailOrMobile}
                     onChange={(e) => setEmailOrMobile(e.target.value)}
