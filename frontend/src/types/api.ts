@@ -1,7 +1,67 @@
 /**
- * API Response and Data Types
- * Mirrors the FastAPI backend response structure
+ * API Response and Data Types for RuralDR-XAI
+ * Includes full clinical screening, XAI, referral, doctor review & report types.
  */
+
+export type UserRole = 'worker' | 'doctor';
+
+export interface UserProfile {
+  id: string;
+  role: UserRole;
+  name: string;
+  email: string;
+  mobile?: string;
+  regNumber?: string;
+  centerName?: string;
+  isVerified: boolean;
+  avatarUrl?: string;
+}
+
+export type CaseStatus =
+  | 'DRAFT'
+  | 'UPLOADED'
+  | 'VALIDATING'
+  | 'INVALID_IMAGE'
+  | 'POOR_QUALITY'
+  | 'SCREENING'
+  | 'SCREENED'
+  | 'NO_REFERRAL'
+  | 'REFERRAL_RECOMMENDED'
+  | 'REFERRED'
+  | 'DOCTOR_REVIEW'
+  | 'CLINICAL_DECISION'
+  | 'COMPLETED';
+
+export type PriorityLevel = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'REVIEW' | 'LOW';
+
+export interface PatientInfo {
+  patientId: string;
+  age: number;
+  gender: 'Male' | 'Female' | 'Other';
+  screeningDate: string;
+  notes?: string;
+  hba1c?: string;
+  diabetesDuration?: string;
+}
+
+export interface ScreeningLocation {
+  state: string;
+  district: string;
+  centerName: string;
+}
+
+export interface HospitalFacility {
+  id: string;
+  name: string;
+  district: string;
+  state: string;
+  distanceKm: number;
+  ophthalmologistOnDuty: string;
+  bedAvailability: string;
+  specialization: string;
+  contactNumber: string;
+  isVerified: boolean;
+}
 
 export interface UploadResponse {
   upload_id: string;
@@ -26,14 +86,15 @@ export interface StatusResponse {
 
 export interface QualityResult {
   status: 'GRADEABLE' | 'BORDERLINE' | 'UNGRADABLE';
-  score: number;
+  score: number; // 0-100
   message: string;
+  artifactsDetected?: string[];
 }
 
 export interface ClassificationResult {
   dr_grade: number; // 0-4
   severity: string;
-  confidence: number;
+  confidence: number; // 0-1
   class_probabilities: number[];
   is_referable: boolean;
 }
@@ -49,12 +110,13 @@ export interface GradCAMResult {
 }
 
 export interface LesionDetection {
-  type: string;
+  type: 'Microaneurysms' | 'Hemorrhages' | 'Hard Exudates' | 'Cotton Wool Spots' | string;
   detected: boolean;
   num_regions: number;
   area_pct: number;
   confidence: number;
   mask_url: string;
+  color?: string;
 }
 
 export interface SegmentationResult {
@@ -70,18 +132,95 @@ export interface ProcessingTimes {
   total_ms: number;
 }
 
+export interface AISafetyCheck {
+  fundusVerified: boolean;
+  qualityAcceptable: boolean;
+  confidenceAcceptable: boolean;
+  explanationGenerated: boolean;
+  highUncertaintyWarning: boolean;
+}
+
+export interface ImageValidationResult {
+  isValidFundus: boolean;
+  validationError?: 'NOT_A_FUNDUS' | 'POOR_QUALITY' | null;
+  rejectionReason?: string;
+  qualityScore: number;
+  fieldVisibilityPct: number;
+  blurLevel: 'Low' | 'Moderate' | 'High';
+  illumination: 'Uniform' | 'Uneven' | 'Dark';
+}
+
 export interface ScreeningResult {
   case_id: string;
+  image_url: string;
+  thumbnail_url?: string;
+  validation: ImageValidationResult;
   quality: QualityResult;
   classification: ClassificationResult;
   gradcam: GradCAMResult | null;
   segmentation: SegmentationResult | null;
+  safety: AISafetyCheck;
   processing_times: ProcessingTimes;
   evidence_report: Record<string, any>;
+}
+
+export type DoctorDecisionType =
+  | 'CONFIRM_AI'
+  | 'MODIFY_ASSESSMENT'
+  | 'REQUEST_NEW_IMAGE'
+  | 'INSUFFICIENT_EVIDENCE';
+
+export interface DoctorReviewDecision {
+  decision: DoctorDecisionType;
+  confirmedGrade: number;
+  confirmedSeverity: string;
+  doctorNotes: string;
+  recommendedTreatment?: string;
+  followUpTimeline: string;
+  reviewedBy: string;
+  regNumber: string;
+  reviewedAt: string;
+  signatureStamp?: string;
+}
+
+export interface ScreeningCase {
+  id: string; // e.g. RDX-1048
+  createdAt: string;
+  updatedAt: string;
+  status: CaseStatus;
+  priority: PriorityLevel;
+  patient: PatientInfo;
+  location: ScreeningLocation;
+  workerId: string;
+  workerName: string;
+  originalImageUrl: string;
+  imageMeta?: {
+    filename: string;
+    resolution: string;
+    sizeKb: number;
+  };
+  screeningResult?: ScreeningResult;
+  referral?: {
+    required: boolean;
+    hospital?: HospitalFacility;
+    referredAt?: string;
+    reason?: string;
+  };
+  doctorReview?: DoctorReviewDecision;
 }
 
 export interface ApiError {
   error: string;
   message: string;
   details: Record<string, any>;
+}
+
+export interface SampleImageOption {
+  id: string;
+  label: string;
+  subtitle: string;
+  category: 'normal' | 'mild' | 'moderate' | 'severe' | 'pdr' | 'invalid' | 'poor_quality';
+  imageUrl: string;
+  expectedGrade?: number;
+  expectedStatus: 'VALID' | 'INVALID' | 'POOR_QUALITY';
 }

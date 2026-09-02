@@ -39,3 +39,7 @@ Thumbs.db
 *.asv
 *.slxc
 slprj/
+
+# Nested clones / backups
+Base_Architecture/
+

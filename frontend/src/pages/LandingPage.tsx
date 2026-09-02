@@ -92,7 +92,7 @@ const Nav: React.FC = () => {
             <button onClick={() => scrollTo('about')}    className="t-small text-text-3 hover:text-text-1 transition-colors hidden md:block">About</button>
             <button onClick={() => scrollTo('features')} className="t-small text-text-3 hover:text-text-1 transition-colors hidden md:block">Features</button>
             <button onClick={() => scrollTo('stages')}   className="t-small text-text-3 hover:text-text-1 transition-colors hidden md:block">DR Stages</button>
-            <Link to="/upload"><Button size="sm" variant="primary">Start Screening</Button></Link>
+            <Link to="/select-role"><Button size="sm" variant="primary">Start Screening</Button></Link>
           </div>
         </div>
       </div>
@@ -128,7 +128,7 @@ const Hero: React.FC = () => {
               Advanced diabetic retinopathy screening with explainable AI. Bringing precision medicine to underserved communities worldwide.
             </p>
             <div className="reveal-up delay-3 flex flex-wrap gap-4 mb-14">
-              <Link to="/upload"><Button size="xl" variant="primary">Start Screening</Button></Link>
+              <Link to="/select-role"><Button size="xl" variant="primary">Start Screening</Button></Link>
               <button onClick={() => document.getElementById('about')?.scrollIntoView({ behavior: 'smooth' })}><Button size="xl" variant="outline">Learn More</Button></button>
             </div>
             <div className="reveal-fade delay-4 flex flex-wrap gap-8">
@@ -318,7 +318,7 @@ const Pipeline: React.FC = () => (
             <p className="t-label text-text-3 mb-4">How it works</p>
             <h2 className="t-heading text-text-0 mb-6">Analysis Pipeline</h2>
             <p className="t-body text-text-2 mb-8">Every fundus image passes through a rigorous multi-stage pipeline — from quality validation to explainable AI output — in seconds.</p>
-            <Link to="/upload"><Button size="lg" variant="primary">Try it Now</Button></Link>
+            <Link to="/select-role"><Button size="lg" variant="primary">Try it Now</Button></Link>
           </div>
           <div className="space-y-2">
             {PIPELINE.map((item, i) => (
@@ -347,7 +347,7 @@ const CTA: React.FC = () => (
         <p className="t-label text-text-3 mb-6">Get Started</p>
         <h2 className="t-display-md text-text-0 mb-6">Ready to screen for diabetic retinopathy?</h2>
         <p className="t-body text-text-2 mb-12 max-w-xl mx-auto">Upload a fundus image to begin AI-powered diabetic retinopathy screening with full explainability.</p>
-        <Link to="/upload"><Button size="xl" variant="primary">Start Screening Now</Button></Link>
+        <Link to="/select-role"><Button size="xl" variant="primary">Start Screening Now</Button></Link>
       </div>
       <div className="mt-20 pt-10" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="flex items-center justify-center gap-3 mb-2">
