@@ -10,7 +10,6 @@ import {
   HospitalFacility,
   ScreeningResult,
   ImageValidationResult,
-  SampleImageOption,
 } from '@/types/api';
 
 const STEPS = [
@@ -59,7 +58,6 @@ const NewScreeningPage: React.FC = () => {
   // Step 3: Fundus Upload State
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState<string>(SAMPLE_IMAGE_OPTIONS[0].imageUrl);
-  const [selectedSample, setSelectedSample] = useState<SampleImageOption | null>(SAMPLE_IMAGE_OPTIONS[0]);
   const [imageMeta, setImageMeta] = useState({
     filename: 'sample_fundus.jpg',
     resolution: '1024×1024 RGB',
@@ -142,7 +140,6 @@ const NewScreeningPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
-      setSelectedSample(null);
       const reader = new FileReader();
       reader.onload = (event) => {
         const result = event.target?.result as string;
@@ -155,17 +152,6 @@ const NewScreeningPage: React.FC = () => {
       };
       reader.readAsDataURL(file);
     }
-  };
-
-  const handleSelectSample = (sample: SampleImageOption) => {
-    setSelectedSample(sample);
-    setSelectedFile(null);
-    setImageUrl(sample.imageUrl);
-    setImageMeta({
-      filename: `${sample.id}.jpg`,
-      resolution: '1024×1024 Standard',
-      sizeKb: 1820,
-    });
   };
 
   // Execute Step 4: Multi-stage AI screening with safety gates
@@ -585,30 +571,6 @@ const NewScreeningPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Quick Sample Selector for Live Demonstration */}
-              <div className="pt-4 border-t border-white/[0.06]">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold text-neutral-300">⚡ Test Presets (Validation & Safety Gate Tests)</span>
-                  <span className="text-[10px] text-neutral-500 font-mono">1-Click Load</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  {SAMPLE_IMAGE_OPTIONS.map((sample) => (
-                    <button
-                      key={sample.id}
-                      type="button"
-                      onClick={() => handleSelectSample(sample)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        selectedSample?.id === sample.id
-                          ? 'bg-teal-500/10 border-teal-500/40 text-white shadow-sm'
-                          : 'bg-black/30 border-white/[0.05] text-neutral-400 hover:text-neutral-200'
-                      }`}
-                    >
-                      <p className="text-xs font-semibold mb-1">{sample.label}</p>
-                      <p className="text-[10px] text-neutral-500 line-clamp-1">{sample.subtitle}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* Right Preview Panel */}

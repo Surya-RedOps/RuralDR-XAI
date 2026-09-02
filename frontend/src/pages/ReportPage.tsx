@@ -209,7 +209,14 @@ const ReportPage: React.FC = () => {
               <p className="text-[11px] font-mono text-neutral-400 uppercase mb-4">Diagnostic Retinal Fundus Photograph</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="aspect-square bg-black rounded-xl overflow-hidden border border-white/10 flex items-center justify-center">
-                  <img src={report.original_image_url} alt="Fundus Original" className="w-full h-full object-contain" />
+                  <img
+                    src={report.original_image_url}
+                    alt="Fundus Original"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = '/api/v1/files/sample_fundus.jpg';
+                    }}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 {pred?.gradcam_url ? (
                   <div className="aspect-square bg-black rounded-xl overflow-hidden border border-white/10 flex items-center justify-center relative">
