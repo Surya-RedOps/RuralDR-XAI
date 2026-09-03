@@ -13,9 +13,57 @@ export interface UserProfile {
   mobile?: string;
   regNumber?: string;
   centerName?: string;
+  stateId?: number;
+  districtId?: number;
   isVerified: boolean;
-  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
+  verificationStatus: 'PENDING_VERIFICATION' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
   avatarUrl?: string;
+}
+
+export interface StateItem {
+  id: number;
+  name: string;
+  code: string;
+}
+
+export interface DistrictItem {
+  id: number;
+  state_id: number;
+  name: string;
+  code?: string;
+}
+
+export interface HealthcareCenterItem {
+  id: number;
+  district_id: number;
+  name: string;
+  facility_type: string;
+  address?: string;
+  pincode?: string;
+  status: string;
+}
+
+export interface HospitalItem {
+  id: number;
+  district_id: number;
+  name: string;
+  facility_type: string;
+  address?: string;
+  contact?: string;
+  pincode?: string;
+  speciality: string;
+  availability: string;
+  status: string;
+}
+
+export interface RegistrationApiResponse {
+  message: string;
+  status: 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED';
+  user_id: number;
+  email: string;
+  mobile: string;
+  role: string;
+  email_verification_required: boolean;
 }
 
 export type CaseStatus =

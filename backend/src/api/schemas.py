@@ -36,23 +36,47 @@ class RegisterWorkerRequest(BaseModel):
     full_name: str = Field(..., min_length=2)
     professional_id: str = Field(..., min_length=3)
     mobile: str = Field(..., min_length=10)
-    email: str = Field(..., min_length=5)
-    healthcare_centre_name: Optional[str] = None
+    email: Optional[str] = None
+    official_email: Optional[str] = None
+    state_id: Optional[int] = None
+    district_id: Optional[int] = None
     healthcare_centre_id: Optional[int] = None
+    healthcare_center_id: Optional[int] = None
+    healthcare_centre_name: Optional[str] = None
     location_id: Optional[int] = None
     password: str = Field(..., min_length=6)
 
 
 class RegisterDoctorRequest(BaseModel):
     full_name: str = Field(..., min_length=2)
-    medical_reg_number: str = Field(..., min_length=4)
+    medical_reg_number: Optional[str] = None
+    medical_registration_id: Optional[str] = None
     mobile: str = Field(..., min_length=10)
-    email: str = Field(..., min_length=5)
-    hospital_name: Optional[str] = None
+    email: Optional[str] = None
+    official_email: Optional[str] = None
+    state_id: Optional[int] = None
+    district_id: Optional[int] = None
     hospital_id: Optional[int] = None
+    hospital_name: Optional[str] = None
     location_id: Optional[int] = None
-    speciality: Optional[str] = "Vitreoretinal & Comprehensive Ophthalmology"
+    speciality: Optional[str] = None
     password: str = Field(..., min_length=6)
+
+
+class RegistrationResponse(BaseModel):
+    message: str
+    status: str  # "PENDING_VERIFICATION"
+    user_id: int
+    email: str
+    mobile: str
+    role: str
+    email_verification_required: bool = True
+
+
+class VerifyAccountRequest(BaseModel):
+    identifier: str  # email, mobile, or professional/medical reg ID
+    status: Optional[str] = "VERIFIED"  # VERIFIED, REJECTED, SUSPENDED
+    notes: Optional[str] = "Verified via authoritative medical registry."
 
 
 class UserProfileResponse(BaseModel):
@@ -63,9 +87,12 @@ class UserProfileResponse(BaseModel):
     full_name: str
     reg_number: Optional[str] = None
     facility_name: Optional[str] = None
+    state_id: Optional[int] = None
+    district_id: Optional[int] = None
     location_id: Optional[int] = None
     verification_status: str
     is_verified: bool
+    email_verified: bool = False
     created_at: datetime
 
 
@@ -116,6 +143,42 @@ class DoctorStatsResponse(BaseModel):
 # ==============================================================================
 # Location & Hospital Schemas
 # ==============================================================================
+class StateResponse(BaseModel):
+    id: int
+    name: str
+    code: str
+
+
+class DistrictResponse(BaseModel):
+    id: int
+    state_id: int
+    name: str
+    code: Optional[str] = None
+
+
+class HealthcareCenterResponse(BaseModel):
+    id: int
+    district_id: int
+    name: str
+    facility_type: str
+    address: Optional[str] = None
+    pincode: Optional[str] = None
+    status: str
+
+
+class HospitalItemResponse(BaseModel):
+    id: int
+    district_id: int
+    name: str
+    facility_type: str
+    address: Optional[str] = None
+    contact: Optional[str] = None
+    pincode: Optional[str] = None
+    speciality: str
+    availability: str
+    status: str
+
+
 class LocationResponse(BaseModel):
     id: int
     state: str

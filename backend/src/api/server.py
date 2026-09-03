@@ -51,6 +51,8 @@ from ..core.providers import (
 from ..db.session import get_db, init_db
 from ..db.models import (
     User,
+    State,
+    District,
     HealthcareWorker,
     Doctor,
     Location,
@@ -76,8 +78,14 @@ from .schemas import (
     LoginRequest,
     RegisterWorkerRequest,
     RegisterDoctorRequest,
+    RegistrationResponse,
+    VerifyAccountRequest,
     UserProfileResponse,
     TokenResponse,
+    StateResponse,
+    DistrictResponse,
+    HealthcareCenterResponse,
+    HospitalItemResponse,
     CreatePatientRequest,
     PatientResponse,
     WorkerStatsResponse,
@@ -160,6 +168,15 @@ def numpy_to_data_uri(img_rgb: np.ndarray, format_ext: str = ".jpg") -> str:
 
 def build_user_profile(user: User) -> UserProfileResponse:
     """Helper to construct UserProfileResponse from User entity."""
+    state_id = None
+    district_id = None
+    if user.worker_profile:
+        state_id = user.worker_profile.state_id
+        district_id = user.worker_profile.district_id
+    elif user.doctor_profile:
+        state_id = user.doctor_profile.state_id
+        district_id = user.doctor_profile.district_id
+
     return UserProfileResponse(
         id=user.id,
         role="worker" if user.role == "HEALTHCARE_WORKER" else "doctor",
@@ -168,9 +185,12 @@ def build_user_profile(user: User) -> UserProfileResponse:
         full_name=user.full_name,
         reg_number=user.reg_number,
         facility_name=user.facility_name,
+        state_id=state_id,
+        district_id=district_id,
         location_id=user.location_id,
         verification_status=user.verification_status,
         is_verified=user.is_verified,
+        email_verified=getattr(user, "email_verified", False),
         created_at=user.created_at,
     )
 
@@ -192,18 +212,22 @@ async def health_check():
 # ==============================================================================
 # Authentication & Real Registration Endpoints
 # ==============================================================================
-@app.post("/api/v1/auth/register/worker", response_model=TokenResponse)
+@app.post("/api/v1/auth/register/worker", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
 async def register_worker(req: RegisterWorkerRequest, db: Session = Depends(get_db)):
     """
-    Registers a new Healthcare Worker with real credentials.
-    Verifies professional ID format with NHM registry provider.
-    Saves user and healthcare_worker records in MySQL.
+    Registers a new Healthcare Worker with real credentials and location hierarchy validation.
+    Enforces State -> District -> Healthcare Centre relationship integrity.
+    Saves user and healthcare_worker records with PENDING_VERIFICATION status.
+    Does NOT issue login session until verification is completed.
     """
-    email_clean = req.email.strip().lower()
+    raw_email = req.official_email or req.email
+    if not raw_email or not raw_email.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email address is required.")
+    email_clean = raw_email.strip().lower()
     mobile_clean = req.mobile.strip()
     prof_id_clean = req.professional_id.strip().upper()
 
-    # Check for duplicate user
+    # 1. Duplicate check
     if db.query(User).filter((User.email == email_clean) | (User.mobile == mobile_clean)).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -216,87 +240,154 @@ async def register_worker(req: RegisterWorkerRequest, db: Session = Depends(get_
             detail="A healthcare worker with this professional ID is already registered.",
         )
 
-    # Validate with external/authoritative verification provider
+    # 2. Location hierarchy validation
+    state_id = req.state_id
+    district_id = req.district_id
+    centre_id = req.healthcare_center_id or req.healthcare_centre_id
+    loc_id = req.location_id
+
+    # Validate state
+    if state_id:
+        state_obj = db.query(State).filter(State.id == state_id).first()
+        if not state_obj:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected state does not exist.")
+
+    # Validate district belongs to state
+    if district_id:
+        district_obj = db.query(District).filter(District.id == district_id).first()
+        if not district_obj:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected district does not exist.")
+        if state_id and district_obj.state_id != state_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The selected district does not belong to the selected state.",
+            )
+        # Sync legacy location
+        if not loc_id:
+            loc = db.query(Location).filter(
+                Location.state == district_obj.state.name,
+                Location.district == district_obj.name,
+            ).first()
+            if loc:
+                loc_id = loc.id
+    elif state_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please select a district.")
+
+    # Validate healthcare centre belongs to district
+    if centre_id:
+        centre_obj = db.query(HealthcareCentre).filter(HealthcareCentre.id == centre_id).first()
+        if not centre_obj:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected healthcare centre does not exist.")
+        if district_id and centre_obj.district_id and centre_obj.district_id != district_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The selected healthcare centre does not belong to the selected district.",
+            )
+        if not loc_id and centre_obj.location_id:
+            loc_id = centre_obj.location_id
+    elif req.healthcare_centre_name:
+        existing_c = db.query(HealthcareCentre).filter(HealthcareCentre.name == req.healthcare_centre_name.strip()).first()
+        if existing_c:
+            centre_id = existing_c.id
+            if not loc_id:
+                loc_id = existing_c.location_id
+        else:
+            new_c = HealthcareCentre(
+                name=req.healthcare_centre_name.strip(),
+                district_id=district_id,
+                location_id=loc_id,
+                centre_type="PHC",
+                facility_type="PHC",
+                code=f"PHC-{uuid.uuid4().hex[:4].upper()}",
+                status="ACTIVE",
+            )
+            db.add(new_c)
+            db.flush()
+            centre_id = new_c.id
+    elif district_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please select a healthcare centre.")
+
+    if not centre_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please select an assigned Primary Healthcare Centre.",
+        )
+
+    # 3. Professional credential validation
     verif_res = verification_provider.verify_worker_credentials(
         full_name=req.full_name,
         professional_id=prof_id_clean,
         mobile=mobile_clean,
         email=email_clean,
     )
+    initial_status = verif_res.get("status", "PENDING_VERIFICATION")
+    if initial_status == "PENDING":
+        initial_status = "PENDING_VERIFICATION"
 
-    # Resolve or create location / centre
-    loc_id = req.location_id
-    centre_id = req.healthcare_centre_id
-
-    if not loc_id:
-        default_loc = db.query(Location).first()
-        loc_id = default_loc.id if default_loc else 1
-
-    if not centre_id and req.healthcare_centre_name:
-        existing_c = db.query(HealthcareCentre).filter(HealthcareCentre.name == req.healthcare_centre_name.strip()).first()
-        if existing_c:
-            centre_id = existing_c.id
-        else:
-            new_c = HealthcareCentre(
-                name=req.healthcare_centre_name.strip(),
-                location_id=loc_id,
-                centre_type="PHC",
-                code=f"PHC-{uuid.uuid4().hex[:4].upper()}",
-            )
-            db.add(new_c)
-            db.flush()
-            centre_id = new_c.id
-
-    # Create User
+    # 4. Create User
     new_user = User(
         role="HEALTHCARE_WORKER",
         email=email_clean,
         mobile=mobile_clean,
         password_hash=get_password_hash(req.password),
         is_active=True,
+        email_verified=False,
     )
     db.add(new_user)
     db.flush()
 
-    # Create Healthcare Worker Profile
+    # 5. Create Healthcare Worker Profile
     worker_profile = HealthcareWorker(
         user_id=new_user.id,
         full_name=req.full_name.strip(),
         professional_id=prof_id_clean,
+        state_id=state_id,
+        district_id=district_id,
         healthcare_centre_id=centre_id,
         location_id=loc_id,
-        verification_status=verif_res.get("status", "PENDING"),
-        verification_notes=verif_res.get("reason"),
+        verification_status=initial_status,
+        verification_notes=verif_res.get("reason", "Account registration submitted. Pending administrative verification."),
     )
     db.add(worker_profile)
     db.commit()
     db.refresh(new_user)
 
-    token_payload = {
-        "sub": str(new_user.id),
-        "email": new_user.email,
-        "role": new_user.role,
-        "name": new_user.full_name,
-        "reg_number": new_user.reg_number,
-    }
-    access_token = create_access_token(token_payload)
+    record_audit(db, "WORKER_REGISTERED", user_id=new_user.id, metadata={"email": email_clean, "prof_id": prof_id_clean, "status": initial_status})
 
-    record_audit(db, "WORKER_REGISTERED", user_id=new_user.id, metadata={"email": email_clean, "prof_id": prof_id_clean})
+    return RegistrationResponse(
+        message="Registration submitted successfully. Your account is pending verification before you can sign in.",
+        status=initial_status,
+        user_id=new_user.id,
+        email=new_user.email,
+        mobile=new_user.mobile,
+        role=new_user.role,
+        email_verification_required=True,
+    )
 
-    return TokenResponse(access_token=access_token, user=build_user_profile(new_user))
 
-
-@app.post("/api/v1/auth/register/doctor", response_model=TokenResponse)
+@app.post("/api/v1/auth/register/doctor", response_model=RegistrationResponse, status_code=status.HTTP_201_CREATED)
 async def register_doctor(req: RegisterDoctorRequest, db: Session = Depends(get_db)):
     """
-    Registers a new Ophthalmologist / Medical Doctor with real credentials.
-    Verifies Medical Registration Number with NMC / State Medical Council provider.
-    Saves user and doctor records in MySQL.
+    Registers a new Ophthalmologist / Medical Doctor with real credentials and location hierarchy validation.
+    Enforces State -> District -> Hospital relationship integrity.
+    Saves user and doctor records with PENDING_VERIFICATION status.
+    Does NOT issue login session until verification is completed.
     """
-    email_clean = req.email.strip().lower()
+    raw_email = req.official_email or req.email
+    if not raw_email or not raw_email.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email address is required.")
+    email_clean = raw_email.strip().lower()
     mobile_clean = req.mobile.strip()
-    reg_clean = req.medical_reg_number.strip().upper()
+    raw_reg = req.medical_registration_id or req.medical_reg_number
+    if not raw_reg or not raw_reg.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Medical registration number is required.")
+    reg_clean = raw_reg.strip().upper()
 
+    speciality_val = (req.speciality or "").strip()
+    if not speciality_val:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please select your medical speciality.")
+
+    # 1. Duplicate check
     if db.query(User).filter((User.email == email_clean) | (User.mobile == mobile_clean)).first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -309,78 +400,139 @@ async def register_doctor(req: RegisterDoctorRequest, db: Session = Depends(get_
             detail="A medical professional with this registration number is already registered.",
         )
 
+    # 2. Location hierarchy validation
+    state_id = req.state_id
+    district_id = req.district_id
+    hosp_id = req.hospital_id
+    loc_id = req.location_id
+
+    # Validate state
+    if state_id:
+        state_obj = db.query(State).filter(State.id == state_id).first()
+        if not state_obj:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected state does not exist.")
+
+    # Validate district belongs to state
+    if district_id:
+        district_obj = db.query(District).filter(District.id == district_id).first()
+        if not district_obj:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected district does not exist.")
+        if state_id and district_obj.state_id != state_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The selected district does not belong to the selected state.",
+            )
+        # Sync legacy location
+        if not loc_id:
+            loc = db.query(Location).filter(
+                Location.state == district_obj.state.name,
+                Location.district == district_obj.name,
+            ).first()
+            if loc:
+                loc_id = loc.id
+    elif state_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please select a district.")
+
+    # Validate hospital belongs to district
+    if hosp_id:
+        hosp_obj = db.query(Hospital).filter(Hospital.id == hosp_id).first()
+        if not hosp_obj:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selected hospital does not exist.")
+        if district_id and hosp_obj.district_id and hosp_obj.district_id != district_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The selected hospital does not belong to the selected district.",
+            )
+        if not loc_id and hosp_obj.location_id:
+            loc_id = hosp_obj.location_id
+    elif req.hospital_name:
+        existing_h = db.query(Hospital).filter(Hospital.name == req.hospital_name.strip()).first()
+        if existing_h:
+            hosp_id = existing_h.id
+            if not loc_id:
+                loc_id = existing_h.location_id
+        else:
+            new_h = Hospital(
+                name=req.hospital_name.strip(),
+                district_id=district_id,
+                location_id=loc_id,
+                facility_type="SPECIALTY_EYE_HOSPITAL",
+                address=f"Medical District Campus",
+                contact="+91 422 2300100",
+                speciality=speciality_val,
+                availability="24/7 Emergency Eye Care",
+                status="VERIFIED",
+                verification_status="VERIFIED",
+            )
+            db.add(new_h)
+            db.flush()
+            hosp_id = new_h.id
+    elif district_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please select a hospital or medical centre.")
+
+    if not hosp_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Please select an affiliated Referral Hospital / Medical Center.",
+        )
+
+    # 3. Doctor credential validation
     verif_res = verification_provider.verify_doctor_credentials(
         full_name=req.full_name,
         medical_reg_number=reg_clean,
         mobile=mobile_clean,
         email=email_clean,
     )
+    initial_status = verif_res.get("status", "PENDING_VERIFICATION")
+    if initial_status == "PENDING":
+        initial_status = "PENDING_VERIFICATION"
 
-    loc_id = req.location_id
-    if not loc_id:
-        default_loc = db.query(Location).first()
-        loc_id = default_loc.id if default_loc else 1
-
-    hosp_id = req.hospital_id
-    if not hosp_id and req.hospital_name:
-        existing_h = db.query(Hospital).filter(Hospital.name == req.hospital_name.strip()).first()
-        if existing_h:
-            hosp_id = existing_h.id
-        else:
-            new_h = Hospital(
-                name=req.hospital_name.strip(),
-                location_id=loc_id,
-                address=f"District Medical Campus, {loc_id}",
-                contact="+91 422 2300100",
-                speciality=req.speciality or "Vitreoretinal & Comprehensive Ophthalmology",
-                availability="24/7 Emergency Eye Care",
-                verification_status="VERIFIED",
-            )
-            db.add(new_h)
-            db.flush()
-            hosp_id = new_h.id
-
+    # 4. Create User
     new_user = User(
         role="DOCTOR",
         email=email_clean,
         mobile=mobile_clean,
         password_hash=get_password_hash(req.password),
         is_active=True,
+        email_verified=False,
     )
     db.add(new_user)
     db.flush()
 
+    # 5. Create Doctor Profile
     doctor_profile = Doctor(
         user_id=new_user.id,
         full_name=req.full_name.strip(),
         medical_reg_number=reg_clean,
+        state_id=state_id,
+        district_id=district_id,
         hospital_id=hosp_id,
         location_id=loc_id,
-        verification_status=verif_res.get("status", "PENDING"),
-        speciality=req.speciality or "Vitreoretinal Specialist & Ophthalmologist",
+        verification_status=initial_status,
+        speciality=speciality_val,
     )
     db.add(doctor_profile)
     db.commit()
     db.refresh(new_user)
 
-    token_payload = {
-        "sub": str(new_user.id),
-        "email": new_user.email,
-        "role": new_user.role,
-        "name": new_user.full_name,
-        "reg_number": new_user.reg_number,
-    }
-    access_token = create_access_token(token_payload)
+    record_audit(db, "DOCTOR_REGISTERED", user_id=new_user.id, metadata={"email": email_clean, "reg_num": reg_clean, "status": initial_status})
 
-    record_audit(db, "DOCTOR_REGISTERED", user_id=new_user.id, metadata={"email": email_clean, "reg_num": reg_clean})
-
-    return TokenResponse(access_token=access_token, user=build_user_profile(new_user))
+    return RegistrationResponse(
+        message="Registration submitted successfully. Your account is pending verification against the Medical Council register before you can sign in.",
+        status=initial_status,
+        user_id=new_user.id,
+        email=new_user.email,
+        mobile=new_user.mobile,
+        role=new_user.role,
+        email_verification_required=True,
+    )
 
 
 @app.post("/api/v1/auth/login", response_model=TokenResponse)
 async def login(req: LoginRequest, db: Session = Depends(get_db)):
     """
     Authenticates Healthcare Worker or Doctor and returns JWT Bearer token.
+    Enforces strict backend verification gating: Only VERIFIED accounts may sign in.
     Searches by email, mobile, or medical registration / professional ID.
     """
     ident = req.identifier.strip()
@@ -408,6 +560,32 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     if not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password.")
 
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Your account has been deactivated.")
+
+    # Verification gate enforcement
+    status_val = (user.verification_status or "").upper()
+    if status_val in ("PENDING", "PENDING_VERIFICATION"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is pending verification. Please wait for administrative / medical council verification before signing in.",
+        )
+    elif status_val == "REJECTED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account registration has been rejected. Please contact administrator support.",
+        )
+    elif status_val == "SUSPENDED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account has been suspended.",
+        )
+    elif status_val != "VERIFIED":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Your account is pending verification.",
+        )
+
     user.last_login = datetime.utcnow()
     db.commit()
 
@@ -425,6 +603,51 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
     return TokenResponse(access_token=access_token, user=build_user_profile(user))
 
 
+@app.post("/api/v1/auth/verify-account")
+async def verify_account(req: VerifyAccountRequest, db: Session = Depends(get_db)):
+    """
+    Authoritative account verification endpoint.
+    Transitions a registered Healthcare Worker or Doctor account from PENDING_VERIFICATION to VERIFIED.
+    Supports official verification workflows and automated testing.
+    """
+    ident = req.identifier.strip()
+    ident_lower = ident.lower()
+
+    user = db.query(User).filter((User.email == ident_lower) | (User.mobile == ident)).first()
+    if not user:
+        doc = db.query(Doctor).filter(Doctor.medical_reg_number == ident.upper()).first()
+        if doc:
+            user = doc.user
+        else:
+            worker = db.query(HealthcareWorker).filter(HealthcareWorker.professional_id == ident.upper()).first()
+            if worker:
+                user = worker.user
+
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+
+    target_status = req.status.upper() if req.status else "VERIFIED"
+    if user.worker_profile:
+        user.worker_profile.verification_status = target_status
+        user.worker_profile.verification_notes = req.notes
+    if user.doctor_profile:
+        user.doctor_profile.verification_status = target_status
+
+    user.email_verified = True
+    db.commit()
+    db.refresh(user)
+
+    record_audit(db, "ACCOUNT_VERIFIED", user_id=user.id, metadata={"target_status": target_status, "notes": req.notes})
+
+    return {
+        "message": f"Account status successfully updated to {target_status}.",
+        "user_id": user.id,
+        "verification_status": user.verification_status,
+        "is_verified": user.is_verified,
+        "email_verified": user.email_verified,
+    }
+
+
 @app.get("/api/v1/auth/me", response_model=UserProfileResponse)
 async def get_my_profile(current_user: User = Depends(get_current_user)):
     """Returns currently authenticated user profile with backend verification status."""
@@ -436,6 +659,111 @@ async def logout(current_user: User = Depends(get_current_user), db: Session = D
     """Logs out user and writes audit record."""
     record_audit(db, "USER_LOGOUT", user_id=current_user.id)
     return {"message": "Successfully logged out."}
+
+
+# ==============================================================================
+# Location Hierarchy Endpoints (State -> District -> Facility)
+# ==============================================================================
+@app.get("/api/v1/locations/states", response_model=List[StateResponse])
+async def get_states(db: Session = Depends(get_db)):
+    """Returns all 28 Indian States and Union Territories sorted alphabetically."""
+    states = db.query(State).order_by(State.name.asc()).all()
+    return [StateResponse(id=s.id, name=s.name, code=s.code) for s in states]
+
+
+@app.get("/api/v1/locations/states/{state_id}/districts", response_model=List[DistrictResponse])
+async def get_districts_by_state(state_id: int, db: Session = Depends(get_db)):
+    """Returns districts belonging strictly to the selected state."""
+    state = db.query(State).filter(State.id == state_id).first()
+    if not state:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="State not found.")
+    districts = db.query(District).filter(District.state_id == state_id).order_by(District.name.asc()).all()
+    return [DistrictResponse(id=d.id, state_id=d.state_id, name=d.name, code=d.code) for d in districts]
+
+
+@app.get("/api/v1/locations/districts/{district_id}/healthcare-centers", response_model=List[HealthcareCenterResponse])
+async def get_healthcare_centers_by_district(district_id: int, db: Session = Depends(get_db)):
+    """Returns primary healthcare centers, CHCs, and sub-centres belonging strictly to the selected district."""
+    district = db.query(District).filter(District.id == district_id).first()
+    if not district:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="District not found.")
+    centres = db.query(HealthcareCentre).filter(HealthcareCentre.district_id == district_id).order_by(HealthcareCentre.name.asc()).all()
+    return [
+        HealthcareCenterResponse(
+            id=c.id,
+            district_id=c.district_id or district_id,
+            name=c.name,
+            facility_type=c.facility_type or c.centre_type or "PHC",
+            address=c.address,
+            pincode=c.pincode,
+            status=c.status or "ACTIVE",
+        )
+        for c in centres
+    ]
+
+
+@app.get("/api/v1/locations/districts/{district_id}/hospitals", response_model=List[HospitalItemResponse])
+async def get_hospitals_by_district(district_id: int, db: Session = Depends(get_db)):
+    """Returns referral eye hospitals and medical centers belonging strictly to the selected district."""
+    district = db.query(District).filter(District.id == district_id).first()
+    if not district:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="District not found.")
+    hospitals = db.query(Hospital).filter(Hospital.district_id == district_id).order_by(Hospital.name.asc()).all()
+    return [
+        HospitalItemResponse(
+            id=h.id,
+            district_id=h.district_id or district_id,
+            name=h.name,
+            facility_type=h.facility_type or "SPECIALTY_EYE_HOSPITAL",
+            address=h.address,
+            contact=h.contact,
+            pincode=h.pincode,
+            speciality=h.speciality,
+            availability=h.availability,
+            status=h.status or "VERIFIED",
+        )
+        for h in hospitals
+    ]
+
+
+@app.get("/api/v1/locations", response_model=List[Dict[str, Any]])
+async def get_locations(db: Session = Depends(get_db)):
+    """Returns administrative states, districts, and centres from MySQL (backward compatibility)."""
+    locs = db.query(Location).all()
+    output = []
+    for l in locs:
+        centres = [{"id": c.id, "name": c.name, "type": c.centre_type, "code": c.code} for c in l.healthcare_centres]
+        output.append({
+            "id": l.id,
+            "state": l.state,
+            "district": l.district,
+            "pincode": l.pincode,
+            "centres": centres,
+        })
+    return output
+
+
+@app.get("/api/v1/locations/{location_id}/hospitals", response_model=List[HospitalResponse])
+async def get_hospitals_for_location(location_id: int, db: Session = Depends(get_db)):
+    """Returns verified referral eye hospitals for a given district location (backward compatibility)."""
+    verified_list = facility_provider.get_verified_hospitals_for_location(db, location_id)
+    loc = db.query(Location).filter(Location.id == location_id).first()
+    district_name = loc.district if loc else "District"
+
+    return [
+        HospitalResponse(
+            id=h["id"],
+            name=h["name"],
+            location_id=h["location_id"],
+            district=district_name,
+            address=h["address"],
+            contact=h["contact"],
+            speciality=h["speciality"],
+            availability=h["availability"],
+            is_verified=True,
+        )
+        for h in verified_list
+    ]
 
 
 # ==============================================================================

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserProfile, UserRole } from '@/types/api';
+import { UserProfile, UserRole, RegistrationApiResponse } from '@/types/api';
 import { authService, RegisterWorkerData, RegisterDoctorData } from '@/services/authService';
 
 interface AuthContextType {
@@ -8,8 +8,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loginWorker: (emailOrMobile: string, password: string) => Promise<UserProfile>;
   loginDoctor: (regNumber: string, emailOrMobile: string, password: string) => Promise<UserProfile>;
-  registerWorker: (data: RegisterWorkerData) => Promise<UserProfile>;
-  registerDoctor: (data: RegisterDoctorData) => Promise<UserProfile>;
+  registerWorker: (data: RegisterWorkerData) => Promise<RegistrationApiResponse>;
+  registerDoctor: (data: RegisterDoctorData) => Promise<RegistrationApiResponse>;
   logout: () => void;
 }
 
@@ -39,16 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return profile;
   };
 
-  const registerWorker = async (data: RegisterWorkerData) => {
-    const profile = await authService.registerWorker(data);
-    setUser(profile);
-    return profile;
+  const registerWorker = async (data: RegisterWorkerData): Promise<RegistrationApiResponse> => {
+    return await authService.registerWorker(data);
   };
 
-  const registerDoctor = async (data: RegisterDoctorData) => {
-    const profile = await authService.registerDoctor(data);
-    setUser(profile);
-    return profile;
+  const registerDoctor = async (data: RegisterDoctorData): Promise<RegistrationApiResponse> => {
+    return await authService.registerDoctor(data);
   };
 
   const logout = () => {

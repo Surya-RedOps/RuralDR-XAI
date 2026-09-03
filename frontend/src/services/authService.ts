@@ -5,7 +5,7 @@
  */
 
 import apiClient from './api';
-import { UserProfile, UserRole } from '@/types/api';
+import { UserProfile, UserRole, RegistrationApiResponse } from '@/types/api';
 
 const AUTH_STORAGE_KEY = 'ruraldr_auth_user';
 const TOKEN_STORAGE_KEY = 'ruraldr_jwt_token';
@@ -21,8 +21,10 @@ interface LoginApiResponse {
     full_name: string;
     reg_number?: string;
     facility_name?: string;
+    state_id?: number;
+    district_id?: number;
     location_id?: number;
-    verification_status: 'PENDING' | 'VERIFIED' | 'REJECTED';
+    verification_status: 'PENDING_VERIFICATION' | 'PENDING' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
     is_verified: boolean;
   };
 }
@@ -31,18 +33,28 @@ export interface RegisterWorkerData {
   full_name: string;
   professional_id: string;
   mobile: string;
-  email: string;
-  healthcare_centre_name: string;
+  official_email?: string;
+  email?: string;
+  state_id: number;
+  district_id: number;
+  healthcare_center_id?: number;
+  healthcare_centre_id?: number;
+  healthcare_centre_name?: string;
   location_id?: number;
   password: string;
 }
 
 export interface RegisterDoctorData {
   full_name: string;
-  medical_reg_number: string;
+  medical_registration_id?: string;
+  medical_reg_number?: string;
   mobile: string;
-  email: string;
-  hospital_name: string;
+  official_email?: string;
+  email?: string;
+  state_id: number;
+  district_id: number;
+  hospital_id: number;
+  hospital_name?: string;
   location_id?: number;
   speciality?: string;
   password: string;
@@ -99,46 +111,28 @@ export const authService = {
     return this.login(identifier, password);
   },
 
-  async registerWorker(data: RegisterWorkerData): Promise<UserProfile> {
-    const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/register/worker', data);
-    const { access_token, user } = response.data;
-    localStorage.setItem(TOKEN_STORAGE_KEY, access_token);
-
-    const profile: UserProfile = {
-      id: `HW-${user.id}`,
-      role: 'worker',
-      name: user.full_name,
-      email: user.email,
-      mobile: user.mobile,
-      regNumber: user.reg_number,
-      centerName: user.facility_name || data.healthcare_centre_name,
-      isVerified: user.is_verified,
-      verificationStatus: user.verification_status,
+  async registerWorker(data: RegisterWorkerData): Promise<RegistrationApiResponse> {
+    const payload = {
+      ...data,
+      official_email: data.official_email || data.email,
+      email: data.email || data.official_email,
+      healthcare_center_id: data.healthcare_center_id || data.healthcare_centre_id,
+      healthcare_centre_id: data.healthcare_centre_id || data.healthcare_center_id,
     };
-
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
-    return profile;
+    const response = await apiClient.post<RegistrationApiResponse>('/api/v1/auth/register/worker', payload);
+    return response.data;
   },
 
-  async registerDoctor(data: RegisterDoctorData): Promise<UserProfile> {
-    const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/register/doctor', data);
-    const { access_token, user } = response.data;
-    localStorage.setItem(TOKEN_STORAGE_KEY, access_token);
-
-    const profile: UserProfile = {
-      id: `DR-${user.id}`,
-      role: 'doctor',
-      name: user.full_name,
-      email: user.email,
-      mobile: user.mobile,
-      regNumber: user.reg_number,
-      centerName: user.facility_name || data.hospital_name,
-      isVerified: user.is_verified,
-      verificationStatus: user.verification_status,
+  async registerDoctor(data: RegisterDoctorData): Promise<RegistrationApiResponse> {
+    const payload = {
+      ...data,
+      official_email: data.official_email || data.email,
+      email: data.email || data.official_email,
+      medical_registration_id: data.medical_registration_id || data.medical_reg_number,
+      medical_reg_number: data.medical_reg_number || data.medical_registration_id,
     };
-
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
-    return profile;
+    const response = await apiClient.post<RegistrationApiResponse>('/api/v1/auth/register/doctor', payload);
+    return response.data;
   },
 
   async verifySession(): Promise<UserProfile | null> {

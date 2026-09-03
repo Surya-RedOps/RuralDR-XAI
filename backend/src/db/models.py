@@ -49,6 +49,7 @@ class User(Base):
     mobile = Column(String(50), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    email_verified = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)
@@ -72,7 +73,7 @@ class User(Base):
             return self.worker_profile.verification_status
         if self.doctor_profile:
             return self.doctor_profile.verification_status
-        return "PENDING"
+        return "PENDING_VERIFICATION"
 
     @property
     def is_verified(self) -> bool:
@@ -104,58 +105,41 @@ class User(Base):
 
 
 # ==============================================================================
-# 2. Healthcare Workers
+# 2. Administrative Geography: States & Districts
 # ==============================================================================
-class HealthcareWorker(Base):
-    __tablename__ = "healthcare_workers"
+class State(Base):
+    __tablename__ = "states"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    full_name = Column(String(255), nullable=False)
-    professional_id = Column(String(100), unique=True, nullable=False, index=True)  # ANM / Health Worker ID
-    healthcare_centre_id = Column(Integer, ForeignKey("healthcare_centres.id"), nullable=True)
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
-    verification_status = Column(String(50), default="PENDING", nullable=False, index=True)  # PENDING, VERIFIED, REJECTED
-    verification_notes = Column(Text, nullable=True)
+    name = Column(String(100), unique=True, nullable=False, index=True)
+    code = Column(String(10), unique=True, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
-    user = relationship("User", back_populates="worker_profile")
-    healthcare_centre = relationship("HealthcareCentre", back_populates="workers")
-    location = relationship("Location", back_populates="workers")
-    patients = relationship("Patient", back_populates="created_by_worker")
-    screening_cases = relationship("ScreeningCase", back_populates="worker")
+    districts = relationship("District", back_populates="state", cascade="all, delete-orphan")
+    workers = relationship("HealthcareWorker", back_populates="state")
+    doctors = relationship("Doctor", back_populates="state")
 
 
-# ==============================================================================
-# 3. Doctors
-# ==============================================================================
-class Doctor(Base):
-    __tablename__ = "doctors"
+class District(Base):
+    __tablename__ = "districts"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    full_name = Column(String(255), nullable=False)
-    medical_reg_number = Column(String(100), unique=True, nullable=False, index=True)  # NMC / State Medical Council Reg
-    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True)
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
-    verification_status = Column(String(50), default="PENDING", nullable=False, index=True)  # PENDING, VERIFIED, REJECTED
-    speciality = Column(String(255), default="Vitreoretinal Specialist & Ophthalmologist", nullable=False)
+    state_id = Column(Integer, ForeignKey("states.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(100), nullable=False, index=True)
+    code = Column(String(20), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     # Relationships
-    user = relationship("User", back_populates="doctor_profile")
-    hospital = relationship("Hospital", back_populates="doctors")
-    location = relationship("Location", back_populates="doctors")
-    assigned_referrals = relationship("Referral", back_populates="assigned_doctor")
-    reviews = relationship("DoctorReview", back_populates="doctor")
-    decisions = relationship("ClinicalDecision", back_populates="doctor")
+    state = relationship("State", back_populates="districts")
+    healthcare_centres = relationship("HealthcareCentre", back_populates="district")
+    hospitals = relationship("Hospital", back_populates="district")
+    workers = relationship("HealthcareWorker", back_populates="district")
+    doctors = relationship("Doctor", back_populates="district")
 
 
 # ==============================================================================
-# 4. Locations (Administrative Geography)
+# 3. Locations (Administrative Geography Compatibility Layer)
 # ==============================================================================
 class Location(Base):
     __tablename__ = "locations"
@@ -175,44 +159,131 @@ class Location(Base):
 
 
 # ==============================================================================
-# 5. Healthcare Centres (Rural PHCs / CHCs)
+# 4. Healthcare Centres (Rural PHCs / CHCs)
 # ==============================================================================
 class HealthcareCentre(Base):
     __tablename__ = "healthcare_centres"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, index=True)
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
-    centre_type = Column(String(50), default="PHC", nullable=False)  # PHC, CHC, SUB_CENTRE
-    code = Column(String(50), unique=True, nullable=False)
+    district_id = Column(Integer, ForeignKey("districts.id"), nullable=True, index=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    facility_type = Column(String(50), default="PHC", nullable=False)  # PHC, CHC, SUB_CENTRE, UPHC
+    centre_type = Column(String(50), default="PHC", nullable=False)    # compatibility with legacy code
+    address = Column(Text, nullable=True)
+    pincode = Column(String(20), nullable=True)
+    code = Column(String(50), unique=True, nullable=True)
+    status = Column(String(50), default="ACTIVE", nullable=False)      # ACTIVE, INACTIVE, DEMO_UNVERIFIED
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
+    district = relationship("District", back_populates="healthcare_centres")
     location = relationship("Location", back_populates="healthcare_centres")
     workers = relationship("HealthcareWorker", back_populates="healthcare_centre")
     screening_cases = relationship("ScreeningCase", back_populates="healthcare_centre")
 
+    @property
+    def district_name(self) -> str:
+        if self.district:
+            return self.district.name
+        if self.location:
+            return self.location.district
+        return ""
+
 
 # ==============================================================================
-# 6. Hospitals (Referral Facilities)
+# 5. Hospitals (Referral Facilities)
 # ==============================================================================
 class Hospital(Base):
     __tablename__ = "hospitals"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, index=True)
-    location_id = Column(Integer, ForeignKey("locations.id"), nullable=False)
-    address = Column(Text, nullable=False)
-    contact = Column(String(100), nullable=False)
+    district_id = Column(Integer, ForeignKey("districts.id"), nullable=True, index=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    facility_type = Column(String(50), default="SPECIALTY_EYE_HOSPITAL", nullable=False)  # SPECIALTY_EYE_HOSPITAL, DISTRICT_HOSPITAL, MEDICAL_COLLEGE
+    address = Column(Text, nullable=True)
+    contact = Column(String(100), nullable=True)
+    pincode = Column(String(20), nullable=True)
     speciality = Column(String(255), default="Vitreoretinal & Comprehensive Ophthalmology", nullable=False)
     availability = Column(String(100), default="24/7 Emergency Eye Care", nullable=False)
-    verification_status = Column(String(50), default="VERIFIED", nullable=False, index=True)  # VERIFIED, UNVERIFIED
+    registration_reference = Column(String(100), nullable=True)
+    status = Column(String(50), default="VERIFIED", nullable=False, index=True)  # VERIFIED, PENDING_VERIFICATION, DEMO_UNVERIFIED
+    verification_status = Column(String(50), default="VERIFIED", nullable=False, index=True)  # compatibility
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
+    district = relationship("District", back_populates="hospitals")
     location = relationship("Location", back_populates="hospitals")
     doctors = relationship("Doctor", back_populates="hospital")
     referrals = relationship("Referral", back_populates="hospital")
+
+    @property
+    def district_name(self) -> str:
+        if self.district:
+            return self.district.name
+        if self.location:
+            return self.location.district
+        return ""
+
+
+# ==============================================================================
+# 6. Healthcare Workers
+# ==============================================================================
+class HealthcareWorker(Base):
+    __tablename__ = "healthcare_workers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    full_name = Column(String(255), nullable=False)
+    professional_id = Column(String(100), unique=True, nullable=False, index=True)  # ANM / Health Worker ID
+    state_id = Column(Integer, ForeignKey("states.id"), nullable=True, index=True)
+    district_id = Column(Integer, ForeignKey("districts.id"), nullable=True, index=True)
+    healthcare_centre_id = Column(Integer, ForeignKey("healthcare_centres.id"), nullable=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    verification_status = Column(String(50), default="PENDING_VERIFICATION", nullable=False, index=True)  # PENDING_VERIFICATION, VERIFIED, REJECTED, SUSPENDED
+    verification_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="worker_profile")
+    state = relationship("State", back_populates="workers")
+    district = relationship("District", back_populates="workers")
+    healthcare_centre = relationship("HealthcareCentre", back_populates="workers")
+    location = relationship("Location", back_populates="workers")
+    patients = relationship("Patient", back_populates="created_by_worker")
+    screening_cases = relationship("ScreeningCase", back_populates="worker")
+
+
+# ==============================================================================
+# 7. Doctors
+# ==============================================================================
+class Doctor(Base):
+    __tablename__ = "doctors"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    full_name = Column(String(255), nullable=False)
+    medical_reg_number = Column(String(100), unique=True, nullable=False, index=True)  # NMC / State Medical Council Reg
+    state_id = Column(Integer, ForeignKey("states.id"), nullable=True, index=True)
+    district_id = Column(Integer, ForeignKey("districts.id"), nullable=True, index=True)
+    hospital_id = Column(Integer, ForeignKey("hospitals.id"), nullable=True)
+    location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
+    verification_status = Column(String(50), default="PENDING_VERIFICATION", nullable=False, index=True)  # PENDING_VERIFICATION, VERIFIED, REJECTED, SUSPENDED
+    speciality = Column(String(255), default="Vitreoretinal Specialist & Ophthalmologist", nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = relationship("User", back_populates="doctor_profile")
+    state = relationship("State", back_populates="doctors")
+    district = relationship("District", back_populates="doctors")
+    hospital = relationship("Hospital", back_populates="doctors")
+    location = relationship("Location", back_populates="doctors")
+    assigned_referrals = relationship("Referral", back_populates="assigned_doctor")
+    reviews = relationship("DoctorReview", back_populates="doctor")
+    decisions = relationship("ClinicalDecision", back_populates="doctor")
 
 
 # ==============================================================================
