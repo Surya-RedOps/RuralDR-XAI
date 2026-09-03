@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole } from '@/types/api';
-import { authService, MOCK_USERS } from '@/services/authService';
+import { authService, RegisterWorkerData, RegisterDoctorData } from '@/services/authService';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -8,7 +8,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   loginWorker: (emailOrMobile: string, password: string) => Promise<UserProfile>;
   loginDoctor: (regNumber: string, emailOrMobile: string, password: string) => Promise<UserProfile>;
-  quickLogin: (role: UserRole) => Promise<UserProfile>;
+  registerWorker: (data: RegisterWorkerData) => Promise<UserProfile>;
+  registerDoctor: (data: RegisterDoctorData) => Promise<UserProfile>;
   logout: () => void;
 }
 
@@ -18,8 +19,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(() => authService.getCurrentUser());
 
   useEffect(() => {
-    const current = authService.getCurrentUser();
-    setUser(current);
+    // Re-verify session with backend on load
+    authService.verifySession().then((verifiedUser) => {
+      if (verifiedUser) {
+        setUser(verifiedUser);
+      }
+    });
   }, []);
 
   const loginWorker = async (emailOrMobile: string, password: string) => {
@@ -34,12 +39,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return profile;
   };
 
-  const quickLogin = async (role: UserRole) => {
-    if (role === 'worker') {
-      return loginWorker(MOCK_USERS.worker.email, 'password123');
-    } else {
-      return loginDoctor(MOCK_USERS.doctor.regNumber || 'MCI-TN-2018-84729', MOCK_USERS.doctor.email, 'password123');
-    }
+  const registerWorker = async (data: RegisterWorkerData) => {
+    const profile = await authService.registerWorker(data);
+    setUser(profile);
+    return profile;
+  };
+
+  const registerDoctor = async (data: RegisterDoctorData) => {
+    const profile = await authService.registerDoctor(data);
+    setUser(profile);
+    return profile;
   };
 
   const logout = () => {
@@ -55,7 +64,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!user,
         loginWorker,
         loginDoctor,
-        quickLogin,
+        registerWorker,
+        registerDoctor,
         logout,
       }}
     >

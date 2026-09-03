@@ -1,6 +1,6 @@
 """
-RuralDR-XAI: Database Session & Engine Configuration
-Supports MySQL with automatic SQLite fallback for testing and development.
+RuralDR-XAI: Database Session & Engine Configuration (SIH26038)
+Connects to primary MySQL 8.x instance with automatic SQLite fallback for isolated unit testing.
 """
 
 import os
@@ -24,21 +24,28 @@ if not DATABASE_URL:
     DATABASE_URL = DEFAULT_SQLITE_URL
 
 connect_args = {}
+engine_kwargs = {
+    "pool_pre_ping": True,
+}
+
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+else:
+    engine_kwargs["pool_recycle"] = 3600
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 20
 
 try:
     engine = create_engine(
         DATABASE_URL,
         connect_args=connect_args,
-        pool_pre_ping=True,
+        **engine_kwargs,
     )
-    # Test connection
     with engine.connect() as conn:
         pass
-    logger.info(f"Database connected using: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'local sqlite'}")
+    logger.info(f"Connected to database: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'local sqlite'}")
 except Exception as e:
-    logger.warning(f"Failed to connect to primary DATABASE_URL ({e}). Falling back to local SQLite.")
+    logger.warning(f"Could not connect to primary DATABASE_URL ({e}). Falling back to local SQLite.")
     DATABASE_URL = DEFAULT_SQLITE_URL
     engine = create_engine(
         DATABASE_URL,
@@ -51,7 +58,7 @@ Base = declarative_base()
 
 
 def get_db() -> Generator[Session, None, None]:
-    """Dependency for obtaining database sessions."""
+    """FastAPI dependency yielding a thread-safe database session."""
     db = SessionLocal()
     try:
         yield db
@@ -60,8 +67,8 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db():
-    """Initializes all database tables and seeds demo records."""
-    from . import models  # Ensure all models are registered
+    """Initializes all database tables and seeds foundational structural metadata."""
+    from . import models  # Ensure all 18 models are registered with Base metadata
     Base.metadata.create_all(bind=engine)
     from .seed import seed_initial_data
     db = SessionLocal()

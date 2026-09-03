@@ -24,12 +24,35 @@ class HealthResponse(BaseModel):
 
 
 # ==============================================================================
-# Auth Schemas
+# Auth & Registration Schemas
 # ==============================================================================
 class LoginRequest(BaseModel):
     identifier: str = Field(..., description="Email, mobile, or Medical Registration Number")
     password: str = Field(..., min_length=4)
     reg_number: Optional[str] = None
+
+
+class RegisterWorkerRequest(BaseModel):
+    full_name: str = Field(..., min_length=2)
+    professional_id: str = Field(..., min_length=3)
+    mobile: str = Field(..., min_length=10)
+    email: str = Field(..., min_length=5)
+    healthcare_centre_name: Optional[str] = None
+    healthcare_centre_id: Optional[int] = None
+    location_id: Optional[int] = None
+    password: str = Field(..., min_length=6)
+
+
+class RegisterDoctorRequest(BaseModel):
+    full_name: str = Field(..., min_length=2)
+    medical_reg_number: str = Field(..., min_length=4)
+    mobile: str = Field(..., min_length=10)
+    email: str = Field(..., min_length=5)
+    hospital_name: Optional[str] = None
+    hospital_id: Optional[int] = None
+    location_id: Optional[int] = None
+    speciality: Optional[str] = "Vitreoretinal & Comprehensive Ophthalmology"
+    password: str = Field(..., min_length=6)
 
 
 class UserProfileResponse(BaseModel):
@@ -50,6 +73,44 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserProfileResponse
+
+
+# ==============================================================================
+# Patient Schemas
+# ==============================================================================
+class CreatePatientRequest(BaseModel):
+    patient_id: Optional[str] = None
+    age: int = Field(..., ge=1, le=120)
+    gender: str = Field(..., description="Male, Female, Other")
+    notes: Optional[str] = None
+
+
+class PatientResponse(BaseModel):
+    id: int
+    patient_id: str
+    age: int
+    gender: str
+    notes: Optional[str] = None
+    created_at: datetime
+
+
+# ==============================================================================
+# Dashboard Stats Schemas
+# ==============================================================================
+class WorkerStatsResponse(BaseModel):
+    todayCount: int
+    pendingCount: int
+    referredCount: int
+    completedCount: int
+
+
+class DoctorStatsResponse(BaseModel):
+    total_cases: int
+    new_referrals: int
+    high_priority: int
+    in_review: int
+    completed: int
+    cases: List[Dict[str, Any]] = []
 
 
 # ==============================================================================

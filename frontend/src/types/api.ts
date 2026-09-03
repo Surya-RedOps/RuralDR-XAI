@@ -14,6 +14,7 @@ export interface UserProfile {
   regNumber?: string;
   centerName?: string;
   isVerified: boolean;
+  verificationStatus: 'PENDING' | 'VERIFIED' | 'REJECTED';
   avatarUrl?: string;
 }
 

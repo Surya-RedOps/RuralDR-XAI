@@ -1,43 +1,73 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { MOCK_USERS } from '@/services/authService';
 import { SEVERE_NPDR_FUNDUS_SVG } from '@/services/sampleAssets';
 
 const DoctorLoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { loginDoctor } = useAuth();
+  const { loginDoctor, registerDoctor } = useAuth();
 
-  const [regNumber, setRegNumber] = useState('');
-  const [emailOrMobile, setEmailOrMobile] = useState('');
+  const [activeTab, setActiveTab] = useState<'signin' | 'register'>('signin');
+
+  // Sign In state
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+
+  // Register state
+  const [regFullName, setRegFullName] = useState('');
+  const [regMedicalNumber, setRegMedicalNumber] = useState('');
+  const [regMobile, setRegMobile] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regHospitalName, setRegHospitalName] = useState('Coimbatore Eye Care & Medical College Hospital');
+  const [regSpeciality, setRegSpeciality] = useState('Vitreoretinal & Comprehensive Ophthalmology');
+  const [regPassword, setRegPassword] = useState('');
+  const [regConfirmPassword, setRegConfirmPassword] = useState('');
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
 
     try {
-      await loginDoctor(
-        regNumber || MOCK_USERS.doctor.regNumber || 'MCI-TN-2018-84729',
-        emailOrMobile || MOCK_USERS.doctor.email,
-        password || 'password123'
-      );
+      await loginDoctor(identifier.trim(), identifier.trim(), password.trim());
       navigate('/doctor/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Clinical authentication failed.');
+      setError(err.response?.data?.detail || err.message || 'Clinical authentication failed. Please verify credentials.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFillDemo = () => {
-    setRegNumber(MOCK_USERS.doctor.regNumber || 'MCI-TN-2018-84729');
-    setEmailOrMobile(MOCK_USERS.doctor.email);
-    setPassword('password123');
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
+
+    if (regPassword !== regConfirmPassword) {
+      setError('Passwords do not match. Please re-enter.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      await registerDoctor({
+        full_name: regFullName.trim(),
+        medical_reg_number: regMedicalNumber.trim(),
+        mobile: regMobile.trim(),
+        email: regEmail.trim(),
+        hospital_name: regHospitalName.trim(),
+        speciality: regSpeciality.trim(),
+        password: regPassword.trim(),
+      });
+      navigate('/doctor/dashboard');
+    } catch (err: any) {
+      setError(err.response?.data?.detail || err.message || 'Medical registration failed. Please verify details.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -61,7 +91,6 @@ const DoctorLoginPage: React.FC = () => {
         <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 rounded-3xl bg-[#090a0d] border border-white/[0.08] overflow-hidden shadow-2xl">
           {/* Left Clinical Information Banner (5 cols) */}
           <div className="lg:col-span-5 relative p-8 lg:p-10 flex flex-col justify-between bg-gradient-to-br from-[#0c1417] via-[#080d11] to-[#040608] border-b lg:border-b-0 lg:border-r border-white/5 overflow-hidden">
-            {/* Background Retinal Ambient Image */}
             <div className="absolute inset-0 opacity-20 pointer-events-none flex items-center justify-center scale-125">
               <img src={SEVERE_NPDR_FUNDUS_SVG} alt="Clinical Ambient" className="w-full h-full object-cover blur-sm" />
             </div>
@@ -79,15 +108,14 @@ const DoctorLoginPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Medical Verification Badge */}
             <div className="relative z-10 mt-8 p-4 rounded-2xl bg-black/60 border border-emerald-500/20 backdrop-blur-md">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xs font-bold">
                   ✓
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-white">Medical Professional Verified</p>
-                  <p className="text-[10px] font-mono text-emerald-400">Registration Verified · NMC / State Council</p>
+                  <p className="text-xs font-semibold text-white">Medical Registry Verification</p>
+                  <p className="text-[10px] font-mono text-emerald-400">NMC / State Council Integration</p>
                 </div>
               </div>
               <p className="text-[11px] text-neutral-400 leading-snug">
@@ -99,23 +127,25 @@ const DoctorLoginPage: React.FC = () => {
           {/* Right Authentication Panel (7 cols) */}
           <div className="lg:col-span-7 p-8 lg:p-12 flex flex-col justify-center bg-[#09090c]">
             <div className="max-w-md w-full mx-auto">
-              <div className="mb-6">
-                <h3 className="text-xl font-bold text-white mb-1 font-['Syne']">Doctor Authentication</h3>
-                <p className="text-xs text-neutral-400">Review AI-assisted retinal screening cases requiring clinical attention.</p>
-              </div>
-
-              {/* Demo Helper Button */}
-              <div className="mb-6 p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between">
-                <div className="text-xs">
-                  <span className="text-emerald-300 font-medium">Demo Doctor: </span>
-                  <span className="font-mono text-neutral-300">Dr. S. K. Aravind</span>
-                </div>
+              {/* Tabs */}
+              <div className="flex rounded-xl bg-white/5 p-1 mb-6 border border-white/10">
                 <button
                   type="button"
-                  onClick={handleFillDemo}
-                  className="px-2.5 py-1 text-[11px] font-semibold rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition-colors"
+                  onClick={() => { setActiveTab('signin'); setError(null); }}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                    activeTab === 'signin' ? 'bg-white text-black shadow-md' : 'text-neutral-400 hover:text-white'
+                  }`}
                 >
-                  Fill Demo
+                  Doctor Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveTab('register'); setError(null); }}
+                  className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all ${
+                    activeTab === 'register' ? 'bg-white text-black shadow-md' : 'text-neutral-400 hover:text-white'
+                  }`}
+                >
+                  Doctor Registration
                 </button>
               </div>
 
@@ -130,75 +160,181 @@ const DoctorLoginPage: React.FC = () => {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-neutral-300 mb-1.5">
-                    Medical Council Registration Number
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. MCI-TN-2018-84729"
-                    value={regNumber}
-                    onChange={(e) => setRegNumber(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs font-mono uppercase focus:outline-none focus:border-emerald-400 transition-colors"
-                  />
-                </div>
+              {/* Sign In Form */}
+              {activeTab === 'signin' && (
+                <form onSubmit={handleSignIn} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-300 mb-1.5">
+                      Medical Registration Number, Mobile, or Email
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. MCI-TN-2018-84729 or doctor@hospital.org"
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+                    />
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-neutral-300 mb-1.5">
-                    Registered Email or Mobile
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. doctor@ruraldrxai.demo"
-                    value={emailOrMobile}
-                    onChange={(e) => setEmailOrMobile(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-400 transition-colors"
-                  />
-                </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs font-medium text-neutral-300">Password</label>
+                    </div>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter clinical account password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500 transition-colors"
+                    />
+                  </div>
 
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-xs font-medium text-neutral-300">Password</label>
-                    <button type="button" className="text-[11px] text-emerald-400 hover:underline">
-                      Forgot password?
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-3.5 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                          <span>Verifying Medical Credentials...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>Access Diagnostic Queue</span>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <path d="M5 12h14" />
+                            <path d="M12 5l7 7-7 7" />
+                          </svg>
+                        </>
+                      )}
                     </button>
                   </div>
-                  <input
-                    type="password"
-                    required
-                    placeholder="Enter account password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-400 transition-colors"
-                  />
-                </div>
+                </form>
+              )}
 
-                <div className="pt-2 space-y-3">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3.5 px-4 rounded-xl bg-white hover:bg-emerald-400 text-black font-semibold text-xs transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {loading ? (
-                      <>
-                        <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                        <span>Verifying Registration Record...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Open Clinical Review Queue</span>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <path d="M5 12h14" />
-                          <path d="M12 5l7 7-7 7" />
-                        </svg>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
+              {/* Registration Form */}
+              {activeTab === 'register' && (
+                <form onSubmit={handleRegister} className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-300 mb-1">Doctor's Full Name</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Dr. S. K. Aravind, MS (Ophthalmology)"
+                      value={regFullName}
+                      onChange={(e) => setRegFullName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-300 mb-1">Medical Reg. Number</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. MCI-TN-2018-84729"
+                        value={regMedicalNumber}
+                        onChange={(e) => setRegMedicalNumber(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-300 mb-1">Mobile (+91)</label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="e.g. 9443156789"
+                        value={regMobile}
+                        onChange={(e) => setRegMobile(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-300 mb-1">Official Clinical Email</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="e.g. dr.aravind@eyecentre.org"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-300 mb-1">Hospital / Medical Centre</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Regional Eye Centre, Coimbatore"
+                      value={regHospitalName}
+                      onChange={(e) => setRegHospitalName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-neutral-300 mb-1">Speciality</label>
+                    <input
+                      type="text"
+                      required
+                      value={regSpeciality}
+                      onChange={(e) => setRegSpeciality(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-300 mb-1">Password</label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        placeholder="Min 6 characters"
+                        value={regPassword}
+                        onChange={(e) => setRegPassword(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-neutral-300 mb-1">Confirm Password</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Re-enter password"
+                        value={regConfirmPassword}
+                        onChange={(e) => setRegConfirmPassword(e.target.value)}
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white placeholder-neutral-600 text-xs focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full py-3 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-semibold text-xs transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <>
+                          <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                          <span>Registering Medical Account...</span>
+                        </>
+                      ) : (
+                        <span>Register & Sign In</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </div>
           </div>
         </div>
@@ -206,7 +342,7 @@ const DoctorLoginPage: React.FC = () => {
 
       {/* Footer */}
       <footer className="px-6 py-4 text-center text-[11px] text-neutral-600 border-t border-white/5">
-        RuralDR-XAI · Specialized Clinical Tele-Ophthalmology Module · SIH26038
+        RuralDR-XAI · Vitreoretinal Diagnostic Network · SIH26038 Compliance
       </footer>
     </div>
   );

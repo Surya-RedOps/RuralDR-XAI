@@ -917,29 +917,43 @@ const NewScreeningPage: React.FC = () => {
 
                 {/* Hospital Selection List */}
                 <div className="space-y-3">
-                  {hospitals.map((hosp) => (
-                    <div
-                      key={hosp.id}
-                      onClick={() => setSelectedHospital(hosp)}
-                      className={`p-4 rounded-2xl border cursor-pointer transition-all ${
-                        selectedHospital?.id === hosp.id
-                          ? 'bg-teal-500/10 border-teal-500/40 ring-1 ring-teal-500'
-                          : 'bg-black/30 border-white/5 hover:border-white/20'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-xs font-bold text-white">{hosp.name}</h3>
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                          ✓ Verified
-                        </span>
+                  {hospitals.length === 0 ? (
+                    <div className="p-8 rounded-2xl bg-black/40 border border-white/10 text-center">
+                      <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mx-auto mb-3 text-neutral-400">
+                        🏥
                       </div>
-                      <p className="text-[11px] text-neutral-400 mb-2">{hosp.specialization} · {hosp.bedAvailability}</p>
-                      <div className="flex items-center gap-4 text-[10px] font-mono text-neutral-500">
-                        <span>📞 {hosp.contactNumber}</span>
-                        <span>📍 {hosp.district}</span>
-                      </div>
+                      <p className="text-xs font-semibold text-neutral-300">
+                        No verified referral facilities available for this location.
+                      </p>
+                      <p className="text-[11px] text-neutral-500 mt-1 font-mono">
+                        Authoritative healthcare facility registry integration required for this district.
+                      </p>
                     </div>
-                  ))}
+                  ) : (
+                    hospitals.map((hosp) => (
+                      <div
+                        key={hosp.id}
+                        onClick={() => setSelectedHospital(hosp)}
+                        className={`p-4 rounded-2xl border cursor-pointer transition-all ${
+                          selectedHospital?.id === hosp.id
+                            ? 'bg-teal-500/10 border-teal-500/40 ring-1 ring-teal-500'
+                            : 'bg-black/30 border-white/5 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <h3 className="text-xs font-bold text-white">{hosp.name}</h3>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            ✓ Verified
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-400 mb-2">{hosp.specialization} · {hosp.bedAvailability}</p>
+                        <div className="flex items-center gap-4 text-[10px] font-mono text-neutral-500">
+                          <span>📞 {hosp.contactNumber}</span>
+                          <span>📍 {hosp.district}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 {/* Referral Notes */}

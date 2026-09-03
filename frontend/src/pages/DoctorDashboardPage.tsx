@@ -109,6 +109,47 @@ const DoctorDashboardPage: React.FC = () => {
           </div>
         </div>
 
+        {/* NMC Verification Status Banner if Pending or Rejected */}
+        {user?.verificationStatus === 'PENDING' && (
+          <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 flex items-start gap-3">
+            <div className="p-1 rounded-full bg-amber-500/20 text-amber-400 mt-0.5">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-amber-300 uppercase tracking-wider font-mono">
+                Medical Registry Verification Pending · National Medical Commission
+              </h4>
+              <p className="text-xs text-amber-200/80 mt-1 leading-relaxed">
+                Your medical registration number ({user?.regNumber || 'Pending'}) is currently undergoing verification against the state/national medical council registry. You can inspect case images and AI activation maps; official diagnostic decision signatures will be unlocked upon registry confirmation.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {user?.verificationStatus === 'REJECTED' && (
+          <div className="mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-200 flex items-start gap-3">
+            <div className="p-1 rounded-full bg-red-500/20 text-red-400 mt-0.5">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <line x1="15" y1="9" x2="9" y2="15" />
+                <line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-red-300 uppercase tracking-wider font-mono">
+                Medical Registration Rejected
+              </h4>
+              <p className="text-xs text-red-200/80 mt-1 leading-relaxed">
+                Your medical registration number could not be validated with the Medical Council. Clinical review submission is prohibited.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Quick Status Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div

@@ -42,25 +42,49 @@ export const AppHeader: React.FC = () => {
               </div>
             </Link>
 
-            {/* Role Verified Badge */}
+            {/* Dynamic Database Verification Status Badge */}
             <div className="hidden md:flex items-center gap-2 pl-4 border-l border-white/10">
               {isWorker && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-                  <span>Healthcare Worker</span>
-                  <span className="text-teal-300/60 font-mono text-[10px]">✓ Verified</span>
-                </div>
+                user?.verificationStatus === 'VERIFIED' ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                    <span>Healthcare Worker</span>
+                    <span className="text-teal-300/80 font-mono text-[10px]">✓ Verified</span>
+                  </div>
+                ) : user?.verificationStatus === 'REJECTED' ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    <span>Registration Rejected</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-medium" title="National Health Mission verification pending">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <span>Verification Pending</span>
+                  </div>
+                )
               )}
               {isDoctor && (
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span>Medical Professional Verified</span>
-                  {user?.regNumber && (
-                    <span className="text-emerald-300/70 font-mono text-[10px] border-l border-emerald-500/20 pl-1.5">
-                      {user.regNumber}
-                    </span>
-                  )}
-                </div>
+                user?.verificationStatus === 'VERIFIED' ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Medical Professional Verified</span>
+                    {user?.regNumber && (
+                      <span className="text-emerald-300/70 font-mono text-[10px] border-l border-emerald-500/20 pl-1.5">
+                        {user.regNumber}
+                      </span>
+                    )}
+                  </div>
+                ) : user?.verificationStatus === 'REJECTED' ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                    <span>Council Registration Rejected</span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-medium" title="Medical Council verification pending">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
+                    <span>NMC Verification Pending</span>
+                  </div>
+                )
               )}
             </div>
           </div>

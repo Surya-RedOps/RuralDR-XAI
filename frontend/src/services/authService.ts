@@ -1,6 +1,7 @@
 /**
- * Authentication Service for RuralDR-XAI
- * Connects to FastAPI backend with JWT tokens and role verification.
+ * Authentication Service for RuralDR-XAI (SIH26038)
+ * Connects to FastAPI backend with JWT tokens, role enforcement, and real registration.
+ * Absolutely NO mock/fake hardcoded users.
  */
 
 import apiClient from './api';
@@ -8,28 +9,6 @@ import { UserProfile, UserRole } from '@/types/api';
 
 const AUTH_STORAGE_KEY = 'ruraldr_auth_user';
 const TOKEN_STORAGE_KEY = 'ruraldr_jwt_token';
-
-export const MOCK_USERS: Record<UserRole, UserProfile> = {
-  worker: {
-    id: 'HW-1',
-    role: 'worker',
-    name: 'Lakshmi Narayanan, ANM',
-    email: 'worker@ruraldrxai.demo',
-    mobile: '+91 98402 12345',
-    centerName: 'Primary Health Centre — Valparai, Coimbatore',
-    isVerified: true,
-  },
-  doctor: {
-    id: 'DR-2',
-    role: 'doctor',
-    name: 'Dr. S. K. Aravind, MS (Ophthalmology)',
-    email: 'doctor@ruraldrxai.demo',
-    mobile: '+91 94431 56789',
-    regNumber: 'MCI-TN-2018-84729',
-    centerName: 'Regional Eye Centre, Coimbatore Medical College Hospital',
-    isVerified: true,
-  },
-};
 
 interface LoginApiResponse {
   access_token: string;
@@ -43,9 +22,30 @@ interface LoginApiResponse {
     reg_number?: string;
     facility_name?: string;
     location_id?: number;
-    verification_status: string;
+    verification_status: 'PENDING' | 'VERIFIED' | 'REJECTED';
     is_verified: boolean;
   };
+}
+
+export interface RegisterWorkerData {
+  full_name: string;
+  professional_id: string;
+  mobile: string;
+  email: string;
+  healthcare_centre_name: string;
+  location_id?: number;
+  password: string;
+}
+
+export interface RegisterDoctorData {
+  full_name: string;
+  medical_reg_number: string;
+  mobile: string;
+  email: string;
+  hospital_name: string;
+  location_id?: number;
+  speciality?: string;
+  password: string;
 }
 
 export const authService = {
@@ -65,12 +65,42 @@ export const authService = {
     return localStorage.getItem(TOKEN_STORAGE_KEY);
   },
 
-  async loginWorker(emailOrMobile: string, password: string): Promise<UserProfile> {
+  async login(identifier: string, password: string): Promise<UserProfile> {
     const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/login', {
-      identifier: emailOrMobile.trim(),
+      identifier: identifier.trim(),
       password: password.trim(),
     });
 
+    const { access_token, user } = response.data;
+    localStorage.setItem(TOKEN_STORAGE_KEY, access_token);
+
+    const profile: UserProfile = {
+      id: user.role === 'worker' ? `HW-${user.id}` : `DR-${user.id}`,
+      role: user.role,
+      name: user.full_name,
+      email: user.email,
+      mobile: user.mobile,
+      regNumber: user.reg_number,
+      centerName: user.facility_name || (user.role === 'worker' ? 'Primary Health Centre' : 'Eye Care Hospital'),
+      isVerified: user.is_verified,
+      verificationStatus: user.verification_status || (user.is_verified ? 'VERIFIED' : 'PENDING'),
+    };
+
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
+    return profile;
+  },
+
+  async loginWorker(emailOrMobile: string, password: string): Promise<UserProfile> {
+    return this.login(emailOrMobile, password);
+  },
+
+  async loginDoctor(regNumberOrEmail: string, emailOrMobile: string, password: string): Promise<UserProfile> {
+    const identifier = regNumberOrEmail.trim() || emailOrMobile.trim();
+    return this.login(identifier, password);
+  },
+
+  async registerWorker(data: RegisterWorkerData): Promise<UserProfile> {
+    const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/register/worker', data);
     const { access_token, user } = response.data;
     localStorage.setItem(TOKEN_STORAGE_KEY, access_token);
 
@@ -81,21 +111,17 @@ export const authService = {
       email: user.email,
       mobile: user.mobile,
       regNumber: user.reg_number,
-      centerName: user.facility_name || 'Primary Health Centre',
+      centerName: user.facility_name || data.healthcare_centre_name,
       isVerified: user.is_verified,
+      verificationStatus: user.verification_status,
     };
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
     return profile;
   },
 
-  async loginDoctor(regNumber: string, emailOrMobile: string, password: string): Promise<UserProfile> {
-    const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/login', {
-      identifier: (regNumber.trim() || emailOrMobile.trim()),
-      password: password.trim(),
-      reg_number: regNumber.trim(),
-    });
-
+  async registerDoctor(data: RegisterDoctorData): Promise<UserProfile> {
+    const response = await apiClient.post<LoginApiResponse>('/api/v1/auth/register/doctor', data);
     const { access_token, user } = response.data;
     localStorage.setItem(TOKEN_STORAGE_KEY, access_token);
 
@@ -106,8 +132,9 @@ export const authService = {
       email: user.email,
       mobile: user.mobile,
       regNumber: user.reg_number,
-      centerName: user.facility_name || 'Regional Eye Centre',
+      centerName: user.facility_name || data.hospital_name,
       isVerified: user.is_verified,
+      verificationStatus: user.verification_status,
     };
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
@@ -130,6 +157,7 @@ export const authService = {
         regNumber: user.reg_number,
         centerName: user.facility_name || 'Health Facility',
         isVerified: user.is_verified,
+        verificationStatus: user.verification_status || (user.is_verified ? 'VERIFIED' : 'PENDING'),
       };
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(profile));
       return profile;
@@ -140,6 +168,11 @@ export const authService = {
   },
 
   logout(): void {
+    try {
+      apiClient.post('/api/v1/auth/logout').catch(() => {});
+    } catch {
+      // ignore
+    }
     localStorage.removeItem(TOKEN_STORAGE_KEY);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   },

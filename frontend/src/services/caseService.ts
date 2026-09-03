@@ -237,7 +237,7 @@ export const caseService = {
   },
 
   /**
-   * Calculates dashboard summary statistics from MySQL cases
+   * Retrieves real dashboard summary statistics from MySQL backend
    */
   async getWorkerStats(): Promise<{
     todayCount: number;
@@ -245,19 +245,16 @@ export const caseService = {
     referredCount: number;
     completedCount: number;
   }> {
-    const cases = await this.getCases();
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    const todayCount = cases.filter((c) => c.createdAt.startsWith(todayStr)).length;
-    const pendingCount = cases.filter((c) => c.status === 'SCREENED' || c.status === 'DRAFT').length;
-    const referredCount = cases.filter((c) => c.status === 'REFERRED').length;
-    const completedCount = cases.filter((c) => c.status === 'COMPLETED').length;
-
-    return {
-      todayCount: todayCount || cases.length,
-      pendingCount,
-      referredCount,
-      completedCount,
-    };
+    try {
+      const response = await apiClient.get<any>('/api/v1/worker/stats');
+      return response.data;
+    } catch {
+      return {
+        todayCount: 0,
+        pendingCount: 0,
+        referredCount: 0,
+        completedCount: 0,
+      };
+    }
   },
 };

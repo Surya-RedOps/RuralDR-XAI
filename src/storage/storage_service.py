@@ -107,6 +107,36 @@ class StorageService:
 
         return storage_key, "local", w, h, file_size
 
+    def save_file(
+        self,
+        file_bytes: bytes,
+        relative_path: str,
+        content_type: str = "application/pdf",
+    ) -> Tuple[str, str]:
+        """
+        Saves arbitrary file bytes (such as PDF reports) to S3 or local disk.
+        Returns: (storage_key, storage_type)
+        """
+        storage_key = relative_path.lstrip("/")
+        if self.use_s3 and self.s3_client is not None:
+            try:
+                self.s3_client.put_object(
+                    Bucket=self.s3_bucket,
+                    Key=storage_key,
+                    Body=file_bytes,
+                    ContentType=content_type,
+                    ServerSideEncryption="AES256",
+                )
+                return storage_key, "s3"
+            except Exception as e:
+                logger.error(f"S3 file upload failed ({e}). Falling back to local disk.")
+
+        dest_path = LOCAL_UPLOAD_DIR / storage_key
+        dest_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(dest_path, "wb") as f:
+            f.write(file_bytes)
+        return storage_key, "local"
+
     def get_image_url(self, storage_key: str, storage_type: str = "local") -> str:
         """
         Generates presigned S3 URL or relative local API endpoint.

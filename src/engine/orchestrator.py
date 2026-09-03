@@ -53,12 +53,24 @@ class ScreeningOrchestrator:
         self.consistency_engine = EvidenceConsistencyEngine()
 
         self.classifier = classifier
-        if self.classifier is not None:
+        if self.classifier is None:
+            import os
+            model_path_env = os.getenv("AI_MODEL_PATH", "").strip()
+            ckpt_path = Path(model_path_env) if model_path_env else (Path("models/dr_classifier/best_model.pth"))
+            try:
+                self.classifier = DRClassifier(backbone_name="resnet18", num_classes=5, pretrained=False)
+                if ckpt_path.is_file():
+                    self.classifier.load_checkpoint(ckpt_path, device=self.device)
+                self.classifier.to(self.device)
+                self.classifier.eval()
+                self.gradcam = GradCAM(self.classifier, use_plus_plus=True)
+            except Exception:
+                self.classifier = None
+                self.gradcam = None
+        else:
             self.classifier.to(self.device)
             self.classifier.eval()
             self.gradcam = GradCAM(self.classifier, use_plus_plus=True)
-        else:
-            self.gradcam = None
 
         self.temperature_scaler = temperature_scaler or TemperatureScaler()
 

@@ -1,21 +1,19 @@
-version: '3.8'
-
 services:
   mysql:
-    image: mysql:8.0
+    image: mysql:8.0.36
     container_name: ruraldr_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root_password_sih26038
-      MYSQL_DATABASE: ruraldr_db
-      MYSQL_USER: ruraldr_user
-      MYSQL_PASSWORD: ruraldr_password_sih
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password_sih26038}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ruraldr_db}
+      MYSQL_USER: ${MYSQL_USER:-ruraldr_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-ruraldr_password_sih}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_password_sih26038"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root_password_sih26038}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -30,17 +28,23 @@ services:
       mysql:
         condition: service_healthy
     environment:
-      DATABASE_URL: mysql+pymysql://ruraldr_user:ruraldr_password_sih@mysql:3306/ruraldr_db
-      JWT_SECRET_KEY: ruraldr-xai-super-secret-production-key-sih26038
+      DATABASE_URL: mysql+pymysql://${MYSQL_USER:-ruraldr_user}:${MYSQL_PASSWORD:-ruraldr_password_sih}@mysql:3306/${MYSQL_DATABASE:-ruraldr_db}
+      JWT_SECRET_KEY: ${JWT_SECRET:-${JWT_SECRET_KEY:-ruraldr-xai-super-secret-production-key-sih26038}}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-ap-south-1}
       AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      AI_MODEL_PATH: ${AI_MODEL_PATH:-models/dr_classifier/best_model.pth}
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data
       - ./models:/app/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     build:
@@ -49,9 +53,10 @@ services:
     container_name: ruraldr_frontend
     restart: unless-stopped
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_API_URL: ${FRONTEND_API_URL:-http://localhost:8000}
     ports:
       - "5173:80"
 

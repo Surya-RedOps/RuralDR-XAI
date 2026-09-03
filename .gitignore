@@ -43,3 +43,13 @@ slprj/
 # Nested clones / backups
 Base_Architecture/
 
+# Environment and Secrets
+.env
+.env*.local
+
+# Database and uploaded screening media
+*.db
+*.sqlite
+*.sqlite3
+data/uploads/*
+!data/uploads/.gitkeep
